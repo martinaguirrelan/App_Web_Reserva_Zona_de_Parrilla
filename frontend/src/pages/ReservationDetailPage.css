@@ -1,0 +1,133 @@
+.rdp { max-width: 640px; margin: 0 auto; }
+
+.rdp-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+  transition: color 0.15s;
+}
+.rdp-back:hover { color: var(--accent-light); }
+
+.rdp-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+}
+
+.rdp-search {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.rdp-search input { flex: 1; }
+
+.rdp-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.rdp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.rdp-codigo {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--accent-light);
+  margin-bottom: 0.4rem;
+}
+
+.rdp-monto {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.rdp-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+}
+
+.rdp-detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+.rdp-detail-row span { color: var(--text-secondary); }
+.rdp-detail-row strong { color: var(--text-primary); text-align: right; max-width: 60%; }
+
+/* Upload */
+.rdp-upload {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+}
+.rdp-upload h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.4rem;
+}
+.rdp-upload p {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.rdp-upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rdp-file-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.rdp-file-label:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-light);
+}
+.rdp-file-label input { display: none; }
+
+/* Status messages */
+.rdp-status-msg {
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.rdp-status-msg.en_revision  { background: rgba(245,158,11,0.1);  border: 1px solid rgba(245,158,11,0.25);  color: #fbbf24; }
+.rdp-status-msg.confirmada   { background: rgba(34,197,94,0.1);   border: 1px solid rgba(34,197,94,0.25);   color: #4ade80; }
+.rdp-status-msg.rechazada    { background: rgba(239,68,68,0.1);   border: 1px solid rgba(239,68,68,0.25);   color: #f87171; }

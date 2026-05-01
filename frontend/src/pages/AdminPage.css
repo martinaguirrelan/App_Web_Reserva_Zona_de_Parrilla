@@ -1,0 +1,193 @@
+.admin-header {
+  margin-bottom: 1.75rem;
+}
+.admin-header h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.admin-header p { color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem; }
+
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 1.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  width: fit-content;
+}
+.admin-tabs button {
+  padding: 7px 20px;
+  border-radius: calc(var(--radius-md) - 2px);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.admin-tabs button.active {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+}
+.admin-tabs button:hover:not(.active) { color: var(--text-primary); }
+
+.admin-section { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.filter-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.pill {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pill:hover { color: var(--text-primary); border-color: var(--border-accent); }
+.pill.active { background: var(--accent-glow); border-color: var(--accent-primary); color: var(--accent-light); }
+
+.loading-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 2rem;
+}
+
+.empty-state {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* Reservas table */
+.reservas-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.reservas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.reservas-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.reservas-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+.reservas-table tr:last-child td { border-bottom: none; }
+.reservas-table tr:hover td { background: var(--bg-hover); }
+
+.col-code { font-weight: 700; color: var(--accent-light) !important; letter-spacing: 0.04em; font-size: 0.8rem; }
+.col-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.res-user { font-weight: 600; }
+.res-depto { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+.estado-select {
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.estado-select:focus { outline: none; border-color: var(--accent-primary); }
+
+/* Zones */
+.zones-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.zone-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  transition: border-color 0.15s;
+}
+.zone-card:hover { border-color: var(--border-accent); }
+.zone-card.inactive { opacity: 0.5; }
+
+.zone-card-info { display: flex; flex-direction: column; gap: 4px; }
+.zone-card-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.zone-card-desc { font-size: 0.8rem; color: var(--text-muted); }
+.zone-card-price { font-size: 1.1rem; font-weight: 700; color: var(--accent-light); }
+
+.zone-card-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+.badge-inactive {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(100,116,139,0.15);
+  border: 1px solid rgba(100,116,139,0.3);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Zone forms */
+.zone-form {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.zone-form h3 { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+
+.zone-edit-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.zone-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.zone-form-full { grid-column: 1 / -1; }
+
+.zone-edit-actions { display: flex; gap: 0.5rem; }
