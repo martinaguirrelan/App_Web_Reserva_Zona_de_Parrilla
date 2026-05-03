@@ -2,8 +2,13 @@ import axios from 'axios'
 
 const TOKEN_KEY = 'admin_token'
 
+// En producción usa VITE_API_URL; en desarrollo usa el proxy de Vite (/api)
+const baseURL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api'
+
 const client = axios.create({
-  baseURL: '/api',
+  baseURL,
   headers: { 'Content-Type': 'application/json' },
 })
 
