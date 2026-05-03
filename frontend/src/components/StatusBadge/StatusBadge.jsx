@@ -1,9 +1,10 @@
 const CONFIG = {
-  pendiente_pago: { label: 'Pendiente de Pago', color: '#94a3b8' },
-  en_revision:   { label: 'En Revisión',        color: '#f59e0b' },
-  confirmada:    { label: 'Confirmada',          color: '#22c55e' },
-  rechazada:     { label: 'Rechazada',           color: '#ef4444' },
-  cancelada:     { label: 'Cancelada',           color: '#64748b' },
+  pendiente_pago:       { label: 'Pendiente de Pago',    color: '#94a3b8' },
+  en_revision:          { label: 'En Revisión',           color: '#f59e0b' },
+  confirmada:           { label: 'Confirmada',            color: '#22c55e' },
+  rechazada:            { label: 'Rechazada',             color: '#ef4444' },
+  cancelada:            { label: 'Cancelada',             color: '#64748b' },
+  pendiente_devolucion: { label: 'Pendiente Devolución',  color: '#8b5cf6' },
 }
 
 export default function StatusBadge({ estado }) {

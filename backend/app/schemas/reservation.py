@@ -12,8 +12,10 @@ class ReservationCreate(BaseModel):
     email: str | None = None
     zone_id: UUID
     fecha: date
-    turno: str  # manana | tarde | noche
+    turno: str
     notas: str | None = None
+    banco_nombre: str | None = None
+    cuenta_numero: str | None = None
 
 
 class ReservationResponse(BaseModel):
@@ -29,6 +31,10 @@ class ReservationResponse(BaseModel):
     created_at: datetime
     usuario: UserResponse
     zona: ZoneResponse
+    banco_nombre: str | None = None
+    cuenta_numero: str | None = None
+    monto_limpieza: Decimal | None = None
+    monto_garantia_dev: Decimal | None = None
 
     model_config = {"from_attributes": True}
 
@@ -36,6 +42,8 @@ class ReservationResponse(BaseModel):
 class ReservationStatusUpdate(BaseModel):
     estado: str
     notas_admin: str | None = None
+    monto_limpieza: Decimal | None = None
+    monto_garantia_dev: Decimal | None = None
 
 
 class SlotInfo(BaseModel):

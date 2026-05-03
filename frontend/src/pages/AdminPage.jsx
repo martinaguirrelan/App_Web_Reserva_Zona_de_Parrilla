@@ -10,17 +10,15 @@ import { formatCurrency, formatDateShort } from '../utils/format'
 import client from '../api/client'
 import './AdminPage.css'
 
-// client se usa para GET /admin/reservations/{id}/payment
-
-
-const ESTADOS = ['', 'pendiente_pago', 'en_revision', 'confirmada', 'rechazada', 'cancelada']
+const ESTADOS = ['', 'pendiente_pago', 'en_revision', 'confirmada', 'rechazada', 'cancelada', 'pendiente_devolucion']
 const ESTADO_LABELS = {
   '': 'Todos',
-  pendiente_pago: 'Pendiente de Pago',
-  en_revision: 'En Revisión',
-  confirmada: 'Confirmada',
-  rechazada: 'Rechazada',
-  cancelada: 'Cancelada',
+  pendiente_pago:       'Pendiente de Pago',
+  en_revision:          'En Revisión',
+  confirmada:           'Confirmada',
+  rechazada:            'Rechazada',
+  cancelada:            'Cancelada',
+  pendiente_devolucion: 'Pendiente Devolución',
 }
 
 export default function AdminPage() {
@@ -48,6 +46,12 @@ export default function AdminPage() {
   const [resError, setResError] = useState(null)
   const [viewingPayment, setViewingPayment] = useState(null)
   const [loadingPayment, setLoadingPayment] = useState(null)
+  const [viewingBanking, setViewingBanking] = useState(null)
+
+  // Modal devolución
+  const [devolucionModal, setDevolucionModal] = useState(null) // { reservaId, codigo }
+  const [devolucionForm, setDevolucionForm] = useState({ monto_garantia_dev: '', monto_limpieza: '' })
+  const [devolucionLoading, setDevolucionLoading] = useState(false)
 
   const fetchReservas = useCallback(() => {
     setLoadingRes(true)
@@ -72,11 +76,47 @@ export default function AdminPage() {
     }
   }
 
+  const handleSelectEstado = (reserva, newEstado) => {
+    if (newEstado === 'pendiente_devolucion') {
+      setDevolucionForm({ monto_garantia_dev: '', monto_limpieza: '' })
+      setDevolucionModal({ reservaId: reserva.id, codigo: reserva.codigo })
+      return
+    }
+    handleEstado(reserva.id, newEstado)
+  }
+
+  const confirmDevolucion = async () => {
+    const garantia = parseFloat(devolucionForm.monto_garantia_dev)
+    const limpieza = parseFloat(devolucionForm.monto_limpieza)
+    if (isNaN(garantia) || garantia < 0) {
+      setResError('Ingresá un monto de garantía válido.')
+      return
+    }
+    if (isNaN(limpieza) || limpieza < 0) {
+      setResError('Ingresá un monto de limpieza válido.')
+      return
+    }
+    setDevolucionLoading(true)
+    try {
+      await adminUpdateEstado(devolucionModal.reservaId, 'pendiente_devolucion', {
+        monto_garantia_dev: garantia,
+        monto_limpieza: limpieza,
+      })
+      setDevolucionModal(null)
+      fetchReservas()
+    } catch {
+      setResError('No se pudo actualizar el estado.')
+    } finally {
+      setDevolucionLoading(false)
+    }
+  }
+
   const handleVerComprobante = async (reservaId) => {
     if (viewingPayment?.reservaId === reservaId) {
       setViewingPayment(null)
       return
     }
+    setViewingBanking(null)
     setLoadingPayment(reservaId)
     try {
       const data = await client.get(`/admin/reservations/${reservaId}/payment`).then(r => r.data)
@@ -86,6 +126,15 @@ export default function AdminPage() {
     } finally {
       setLoadingPayment(null)
     }
+  }
+
+  const handleVerBanking = (reserva) => {
+    if (viewingBanking?.id === reserva.id) {
+      setViewingBanking(null)
+      return
+    }
+    setViewingPayment(null)
+    setViewingBanking(reserva)
   }
 
   const handleExportExcel = () => {
@@ -162,8 +211,68 @@ export default function AdminPage() {
     } catch (err) { setZoneError(err.message) }
   }
 
+  // ── Cálculo neto devolución ────────────────────────────────────────────────
+  const garantia = parseFloat(devolucionForm.monto_garantia_dev) || 0
+  const limpieza = parseFloat(devolucionForm.monto_limpieza) || 0
+  const neto = garantia - limpieza
+
   return (
     <div className="admin">
+      {/* Modal devolución */}
+      {devolucionModal && (
+        <div className="modal-overlay" onClick={() => setDevolucionModal(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Gestión de Devolución</h3>
+              <button className="btn-ghost" onClick={() => setDevolucionModal(null)}>✕</button>
+            </div>
+            <p className="modal-subtitle">Reserva <strong>{devolucionModal.codigo}</strong></p>
+
+            <div className="modal-field">
+              <label>Devolución de garantía (S/.)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={devolucionForm.monto_garantia_dev}
+                onChange={(e) => setDevolucionForm(f => ({ ...f, monto_garantia_dev: e.target.value }))}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div className="modal-field">
+              <label>Cargo por limpieza (S/.)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={devolucionForm.monto_limpieza}
+                onChange={(e) => setDevolucionForm(f => ({ ...f, monto_limpieza: e.target.value }))}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div className="modal-neto">
+              <span>Monto neto a devolver</span>
+              <strong className={neto < 0 ? 'neto-negativo' : 'neto-positivo'}>
+                {formatCurrency(neto)}
+              </strong>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn-primary"
+                onClick={confirmDevolucion}
+                disabled={devolucionLoading}
+              >
+                {devolucionLoading ? <><span className="spinner" /> Guardando…</> : 'Confirmar devolución'}
+              </button>
+              <button className="btn-ghost" onClick={() => setDevolucionModal(null)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="admin-header">
         <h1>Panel de administración</h1>
         <p>Gestioná reservas y zonas del sistema.</p>
@@ -295,6 +404,40 @@ export default function AdminPage() {
             </div>
           )}
 
+          {/* Visor de datos bancarios */}
+          {viewingBanking && (
+            <div className="payment-viewer banking-viewer">
+              <div className="pv-header">
+                <strong>Datos bancarios — {viewingBanking.codigo}</strong>
+                <button className="btn-ghost" onClick={() => setViewingBanking(null)}>✕ Cerrar</button>
+              </div>
+              <div className="banking-grid">
+                <div className="banking-row">
+                  <span>Banco</span>
+                  <strong>{viewingBanking.banco_nombre || '—'}</strong>
+                </div>
+                <div className="banking-row">
+                  <span>N° de cuenta</span>
+                  <strong>{viewingBanking.cuenta_numero || '—'}</strong>
+                </div>
+                <div className="banking-row">
+                  <span>Garantía a devolver</span>
+                  <strong>{viewingBanking.monto_garantia_dev != null ? formatCurrency(viewingBanking.monto_garantia_dev) : '—'}</strong>
+                </div>
+                <div className="banking-row">
+                  <span>Cargo limpieza</span>
+                  <strong>{viewingBanking.monto_limpieza != null ? formatCurrency(viewingBanking.monto_limpieza) : '—'}</strong>
+                </div>
+                {viewingBanking.monto_garantia_dev != null && viewingBanking.monto_limpieza != null && (
+                  <div className="banking-row banking-neto">
+                    <span>Monto neto a transferir</span>
+                    <strong>{formatCurrency(parseFloat(viewingBanking.monto_garantia_dev) - parseFloat(viewingBanking.monto_limpieza))}</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {loadingRes ? (
             <div className="loading-row"><span className="spinner" /> Cargando…</div>
           ) : reservas.length === 0 ? (
@@ -329,27 +472,38 @@ export default function AdminPage() {
                       <td>{formatCurrency(r.monto_total)}</td>
                       <td><StatusBadge estado={r.estado} /></td>
                       <td>
-                        {r.estado !== 'pendiente_pago' ? (
-                          <button
-                            className="btn-ghost"
-                            disabled={loadingPayment === r.id}
-                            onClick={() => handleVerComprobante(r.id)}
-                          >
-                            {loadingPayment === r.id ? <span className="spinner" /> : '👁 Ver'}
-                          </button>
-                        ) : (
-                          <span className="col-na">—</span>
-                        )}
+                        <div className="pv-btns">
+                          {r.estado !== 'pendiente_pago' && (
+                            <button
+                              className="btn-ghost"
+                              disabled={loadingPayment === r.id}
+                              onClick={() => handleVerComprobante(r.id)}
+                            >
+                              {loadingPayment === r.id ? <span className="spinner" /> : '👁 Ver'}
+                            </button>
+                          )}
+                          {r.estado === 'pendiente_devolucion' && r.banco_nombre && (
+                            <button
+                              className="btn-ghost btn-purple"
+                              onClick={() => handleVerBanking(r)}
+                            >
+                              🏦 Datos
+                            </button>
+                          )}
+                          {r.estado === 'pendiente_pago' && (
+                            <span className="col-na">—</span>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <select
                           className="estado-select"
                           value={r.estado}
                           disabled={updatingId === r.id}
-                          onChange={(e) => handleEstado(r.id, e.target.value)}
+                          onChange={(e) => handleSelectEstado(r, e.target.value)}
                         >
-                          {['pendiente_pago','en_revision','confirmada','rechazada','cancelada'].map((s) => (
-                            <option key={s} value={s}>{ESTADO_LABELS[s]}</option>
+                          {Object.entries(ESTADO_LABELS).filter(([k]) => k !== '').map(([s, label]) => (
+                            <option key={s} value={s}>{label}</option>
                           ))}
                         </select>
                       </td>

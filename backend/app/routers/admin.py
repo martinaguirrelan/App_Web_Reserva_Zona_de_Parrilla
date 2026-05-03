@@ -17,7 +17,7 @@ from .auth import get_current_admin
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-VALID_STATES = ("pendiente_pago", "en_revision", "confirmada", "rechazada", "cancelada")
+VALID_STATES = ("pendiente_pago", "en_revision", "confirmada", "rechazada", "cancelada", "pendiente_devolucion")
 
 
 # ── Reservas ──────────────────────────────────────────────────────────────────
@@ -51,6 +51,10 @@ def update_estado(
     reserva.estado = data.estado
     if data.notas_admin and reserva.pagos:
         reserva.pagos[-1].notas_admin = data.notas_admin
+    if data.monto_garantia_dev is not None:
+        reserva.monto_garantia_dev = data.monto_garantia_dev
+    if data.monto_limpieza is not None:
+        reserva.monto_limpieza = data.monto_limpieza
 
     db.commit()
     return {"mensaje": "Estado actualizado", "estado": data.estado}

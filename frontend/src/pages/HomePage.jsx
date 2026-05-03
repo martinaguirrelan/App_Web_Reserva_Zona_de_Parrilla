@@ -116,6 +116,14 @@ export default function HomePage() {
             ))}
           </div>
 
+          {/* Descripción de la zona seleccionada */}
+          {selectedZone?.descripcion && (
+            <div className="zone-desc-card">
+              <span className="zone-desc-label">Zona de Parrilla</span>
+              <p className="zone-desc-text">{selectedZone.descripcion}</p>
+            </div>
+          )}
+
           <div className="home-grid">
             {/* Columna izquierda: calendario */}
             <div className="home-left">

@@ -127,6 +127,22 @@
 .req { color: var(--accent-primary); }
 .opt { color: var(--text-muted); font-weight: 400; }
 
+.rp-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 @media (max-width: 768px) {
   .rp-grid { grid-template-columns: 1fr; }
   .rp-summary { order: -1; }

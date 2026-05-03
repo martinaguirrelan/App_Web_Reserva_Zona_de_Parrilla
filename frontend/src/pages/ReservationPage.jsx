@@ -4,6 +4,20 @@ import { createReservation } from '../api/reservations'
 import { formatCurrency, formatDateLong } from '../utils/format'
 import './ReservationPage.css'
 
+const BANCOS_PERU = [
+  'BCP (Banco de Crédito del Perú)',
+  'BBVA Perú',
+  'Interbank',
+  'Scotiabank Perú',
+  'BanBif',
+  'Banco Pichincha',
+  'Banco GNB Perú',
+  'Mibanco',
+  'Banco Falabella',
+  'Banco Ripley',
+  'Banco de la Nación',
+]
+
 export default function ReservationPage() {
   const navigate = useNavigate()
   const { state } = useLocation()
@@ -12,7 +26,10 @@ export default function ReservationPage() {
   const fecha = state?.fecha
   const turno = state?.turno
 
-  const [form, setForm] = useState({ nombre: '', departamento: '', email: '', notas: '' })
+  const [form, setForm] = useState({
+    nombre: '', departamento: '', email: '', notas: '',
+    banco_nombre: '', cuenta_numero: '',
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -34,6 +51,18 @@ export default function ReservationPage() {
       setError('Nombre y departamento son obligatorios.')
       return
     }
+    if (!form.banco_nombre) {
+      setError('Seleccioná un banco para la devolución de garantía.')
+      return
+    }
+    if (!form.cuenta_numero.trim() || form.cuenta_numero.trim().length < 8) {
+      setError('El número de cuenta debe tener al menos 8 caracteres.')
+      return
+    }
+    if (!/^[a-zA-Z0-9]+$/.test(form.cuenta_numero.trim())) {
+      setError('El número de cuenta solo debe contener letras y números (sin espacios ni guiones).')
+      return
+    }
     setLoading(true)
     try {
       const data = await createReservation({
@@ -44,6 +73,8 @@ export default function ReservationPage() {
         fecha,
         turno,
         notas: form.notas.trim() || null,
+        banco_nombre: form.banco_nombre,
+        cuenta_numero: form.cuenta_numero.trim(),
       })
       navigate('/confirmacion', { state: { reserva: data } })
     } catch (err) {
@@ -144,6 +175,37 @@ export default function ReservationPage() {
                 rows={3}
                 disabled={loading}
               />
+            </div>
+
+            <div className="rp-section-title">Datos bancarios para devolución de garantía</div>
+
+            <div className="field">
+              <label>Banco <span className="req">*</span></label>
+              <select
+                name="banco_nombre"
+                value={form.banco_nombre}
+                onChange={handleChange}
+                required
+                disabled={loading}
+              >
+                <option value="">Seleccioná tu banco</option>
+                {BANCOS_PERU.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Número de cuenta <span className="req">*</span></label>
+              <input
+                name="cuenta_numero"
+                value={form.cuenta_numero}
+                onChange={handleChange}
+                placeholder="Ej: 19412345678901"
+                disabled={loading}
+                maxLength={20}
+              />
+              <span className="field-hint">Solo letras y números, mínimo 8 caracteres.</span>
             </div>
 
             <button type="submit" className="btn-primary btn-full" disabled={loading}>

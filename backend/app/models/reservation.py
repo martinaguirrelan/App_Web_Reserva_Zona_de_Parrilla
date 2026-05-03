@@ -22,6 +22,7 @@ class Reservation(Base):
     estado = Column(
         SAEnum(
             "pendiente_pago", "en_revision", "confirmada", "rechazada", "cancelada",
+            "pendiente_devolucion",
             name="estado_reserva",
         ),
         default="pendiente_pago",
@@ -29,6 +30,10 @@ class Reservation(Base):
     )
     monto_total = Column(Numeric(10, 2), nullable=False)
     notas = Column(Text, nullable=True)
+    banco_nombre = Column(String(100), nullable=True)
+    cuenta_numero = Column(String(50), nullable=True)
+    monto_limpieza = Column(Numeric(10, 2), nullable=True)
+    monto_garantia_dev = Column(Numeric(10, 2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

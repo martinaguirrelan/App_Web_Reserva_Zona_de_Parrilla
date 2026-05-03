@@ -308,6 +308,72 @@
 .pv-image { max-width: 100%; max-height: 400px; border-radius: var(--radius-sm); object-fit: contain; }
 .pv-notes { font-size: 0.85rem; color: var(--text-secondary); font-style: italic; }
 .col-na { color: var(--text-muted); font-size: 0.8rem; }
+.pv-btns { display: flex; flex-direction: column; gap: 4px; }
+.btn-purple { color: #8b5cf6 !important; border-color: #8b5cf640 !important; }
+
+/* ── Banking viewer ───────────────────────────────────────────────────────── */
+.banking-viewer { border-color: #8b5cf640; }
+.banking-grid { display: flex; flex-direction: column; gap: 0.6rem; }
+.banking-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  gap: 1rem;
+}
+.banking-row span { color: var(--text-secondary); }
+.banking-row strong { color: var(--text-primary); }
+.banking-neto {
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+  font-size: 1rem;
+}
+.banking-neto strong { color: #8b5cf6; font-size: 1.1rem; }
+
+/* ── Modal devolución ─────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+.modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-header h3 { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+.modal-subtitle { font-size: 0.85rem; color: var(--text-secondary); margin-top: -0.5rem; }
+.modal-field { display: flex; flex-direction: column; gap: 6px; }
+.modal-field label { font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
+.modal-neto {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+.modal-neto span { color: var(--text-secondary); }
+.neto-positivo { color: #22c55e; font-size: 1.1rem; }
+.neto-negativo { color: #ef4444; font-size: 1.1rem; }
+.modal-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {

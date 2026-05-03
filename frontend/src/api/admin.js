@@ -4,8 +4,8 @@ import client from './client'
 export const adminGetReservations = (estado) =>
   client.get('/admin/reservations', { params: estado ? { estado } : {} }).then((r) => r.data)
 
-export const adminUpdateEstado = (id, estado, notas_admin) =>
-  client.patch(`/admin/reservations/${id}/estado`, { estado, notas_admin }).then((r) => r.data)
+export const adminUpdateEstado = (id, estado, extra = {}) =>
+  client.patch(`/admin/reservations/${id}/estado`, { estado, ...extra }).then((r) => r.data)
 
 export const adminExportExcel = async (estado) => {
   const params = estado ? { estado } : {}
