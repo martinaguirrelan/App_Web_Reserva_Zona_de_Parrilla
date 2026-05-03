@@ -1,5 +1,6 @@
 import { useLocation, Link, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
+import { formatCurrency, formatDateLong } from '../utils/format'
 import './ConfirmationPage.css'
 
 export default function ConfirmationPage() {
@@ -12,11 +13,6 @@ export default function ConfirmationPage() {
   }, [reserva, navigate])
 
   if (!reserva) return null
-
-  const formatFecha = (ds) => {
-    const [y, m, d] = ds.split('-')
-    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  }
 
   const copyCode = () => navigator.clipboard.writeText(reserva.codigo)
 
@@ -41,7 +37,7 @@ export default function ConfirmationPage() {
             <span>Zona</span><strong>{reserva.zona.nombre}</strong>
           </div>
           <div className="cp-detail-row">
-            <span>Fecha</span><strong>{formatFecha(reserva.fecha)}</strong>
+            <span>Fecha</span><strong>{formatDateLong(reserva.fecha)}</strong>
           </div>
           <div className="cp-detail-row">
             <span>Horario</span><strong>{reserva.hora_inicio.slice(0,5)} – {reserva.hora_fin.slice(0,5)}</strong>
@@ -51,7 +47,7 @@ export default function ConfirmationPage() {
           </div>
           <div className="cp-detail-row cp-total-row">
             <span>Total a pagar</span>
-            <strong>${Number(reserva.monto_total).toLocaleString('es-AR')}</strong>
+            <strong>{formatCurrency(reserva.monto_total)}</strong>
           </div>
         </div>
 
@@ -59,7 +55,7 @@ export default function ConfirmationPage() {
           <p className="cp-steps-title">Próximos pasos</p>
           <div className="cp-step">
             <span className="cp-step-num">1</span>
-            <span>Realizá la transferencia por <strong>${Number(reserva.monto_total).toLocaleString('es-AR')}</strong> a la cuenta del consorcio.</span>
+            <span>Realizá la transferencia por <strong>{formatCurrency(reserva.monto_total)}</strong> a la cuenta del consorcio.</span>
           </div>
           <div className="cp-step">
             <span className="cp-step-num">2</span>

@@ -189,3 +189,19 @@ button { font-family: inherit; }
   font-weight: 600;
   color: var(--text-secondary);
 }
+
+/* ── Layout responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .layout-main {
+    padding: 1.25rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  html { font-size: 15px; }
+  .layout-main { padding: 1rem 0.75rem; }
+}
+
+/* ── Req / opt labels ─────────────────────────────────────────────────────── */
+.req { color: var(--status-lleno); }
+.opt { color: var(--text-muted); font-weight: 400; }

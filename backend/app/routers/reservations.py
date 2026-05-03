@@ -9,11 +9,11 @@ from ..models.zone import Zone
 from ..models.user import User
 from ..schemas.reservation import ReservationCreate, ReservationResponse
 from ..services.reservation_service import (
-    check_availability,
+    check_date_availability,
     get_available_slots,
     get_monthly_availability,
     generate_codigo,
-    TURNOS,
+    TURNO_DIA,
 )
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
@@ -40,23 +40,21 @@ def monthly_calendar(
 
 @router.post("/", response_model=ReservationResponse, status_code=201)
 def create_reservation(data: ReservationCreate, db: Session = Depends(get_db)):
-    if data.turno not in TURNOS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Turno inválido. Opciones: {list(TURNOS.keys())}",
-        )
+    turno_key = data.turno if data.turno else "dia"
+    if turno_key not in TURNO_DIA:
+        turno_key = "dia"
 
-    hora_inicio, hora_fin, _ = TURNOS[data.turno]
+    hora_inicio, hora_fin, _ = TURNO_DIA[turno_key]
 
     zone = db.query(Zone).filter(Zone.id == data.zone_id, Zone.activa == True).first()
     if not zone:
         raise HTTPException(status_code=404, detail="Zona no encontrada o inactiva")
 
-    # Double-booking check (con SELECT FOR UPDATE)
-    if not check_availability(db, data.zone_id, data.fecha, hora_inicio, hora_fin):
+    # Validación CA2 + CA3: un solo turno diario, bloqueo global de fecha
+    if not check_date_availability(db, data.fecha):
         raise HTTPException(
             status_code=409,
-            detail="El turno ya fue reservado. Por favor elegí otro turno o fecha.",
+            detail="La fecha seleccionada ya está reservada. El espacio solo permite una reserva diaria.",
         )
 
     user = User(nombre=data.nombre, departamento=data.departamento, email=data.email)
@@ -75,7 +73,16 @@ def create_reservation(data: ReservationCreate, db: Session = Depends(get_db)):
         notas=data.notas,
     )
     db.add(reserva)
-    db.commit()
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="La fecha ya fue reservada por otra persona al mismo tiempo. Elegí otra fecha.",
+        )
+
     db.refresh(reserva)
     return reserva
 

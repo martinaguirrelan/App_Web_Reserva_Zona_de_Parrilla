@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import StatusBadge from '../components/StatusBadge/StatusBadge'
 import { getReservationByCodigo, uploadPayment } from '../api/reservations'
+import { formatCurrency, formatDateLong } from '../utils/format'
 import './ReservationDetailPage.css'
 
 export default function ReservationDetailPage() {
@@ -15,12 +16,6 @@ export default function ReservationDetailPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState(null)
   const [file, setFile] = useState(null)
-
-  const formatFecha = (ds) => {
-    if (!ds) return ''
-    const [y, m, d] = ds.split('-')
-    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  }
 
   const fetchReserva = async (code) => {
     setError(null)
@@ -60,10 +55,9 @@ export default function ReservationDetailPage() {
     }
   }
 
-  // Auto-buscar si hay código en la URL
-  useState(() => {
+  useEffect(() => {
     if (codigo) fetchReserva(codigo)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="rdp">
@@ -93,12 +87,12 @@ export default function ReservationDetailPage() {
               <div className="rdp-codigo">{reserva.codigo}</div>
               <StatusBadge estado={reserva.estado} />
             </div>
-            <div className="rdp-monto">${Number(reserva.monto_total).toLocaleString('es-AR')}</div>
+            <div className="rdp-monto">{formatCurrency(reserva.monto_total)}</div>
           </div>
 
           <div className="rdp-details">
             <div className="rdp-detail-row"><span>Zona</span><strong>{reserva.zona.nombre}</strong></div>
-            <div className="rdp-detail-row"><span>Fecha</span><strong>{formatFecha(reserva.fecha)}</strong></div>
+            <div className="rdp-detail-row"><span>Fecha</span><strong>{formatDateLong(reserva.fecha)}</strong></div>
             <div className="rdp-detail-row"><span>Horario</span><strong>{reserva.hora_inicio.slice(0,5)} – {reserva.hora_fin.slice(0,5)}</strong></div>
             <div className="rdp-detail-row"><span>Residente</span><strong>{reserva.usuario.nombre}</strong></div>
             <div className="rdp-detail-row"><span>Departamento</span><strong>{reserva.usuario.departamento}</strong></div>
@@ -129,19 +123,17 @@ export default function ReservationDetailPage() {
 
           {reserva.estado === 'en_revision' && (
             <div className="rdp-status-msg en_revision">
-              🕐 Tu comprobante está siendo revisado por administración. Te confirmaremos a la brevedad.
+              Tu comprobante está siendo revisado por administración. Te confirmaremos a la brevedad.
             </div>
           )}
-
           {reserva.estado === 'confirmada' && (
             <div className="rdp-status-msg confirmada">
-              ✅ ¡Tu reserva está confirmada! Nos vemos el día del evento.
+              ¡Tu reserva está confirmada! Nos vemos el día del evento.
             </div>
           )}
-
           {reserva.estado === 'rechazada' && (
             <div className="rdp-status-msg rechazada">
-              ❌ Tu comprobante fue rechazado. Comunicate con administración para más información.
+              Tu comprobante fue rechazado. Comunicate con administración para más información.
             </div>
           )}
         </div>

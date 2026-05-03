@@ -162,4 +162,12 @@
 
 @media (max-width: 768px) {
   .home-grid { grid-template-columns: 1fr; }
+  .home-hero h1 { font-size: 1.5rem; }
+  .zone-selector { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .home-hero { padding: 1.25rem; }
+  .home-hero h1 { font-size: 1.3rem; }
+  .reserve-summary { padding: 1rem; }
 }

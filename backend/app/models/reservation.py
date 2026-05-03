@@ -1,6 +1,9 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Date, Time, Numeric, Text, ForeignKey, Enum as SAEnum
+from sqlalchemy import (
+    Column, String, DateTime, Date, Time, Numeric, Text,
+    ForeignKey, Enum as SAEnum, Index, text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ..database import Base
@@ -32,3 +35,16 @@ class Reservation(Base):
     usuario = relationship("User", backref="reservas")
     zona = relationship("Zone", backref="reservas")
     pagos = relationship("Payment", backref="reserva", cascade="all, delete-orphan")
+
+    # Índice único parcial (PostgreSQL): solo una reserva activa por fecha en todo el sistema.
+    # Evita race conditions cuando dos usuarios intentan reservar el mismo día simultáneamente.
+    __table_args__ = (
+        Index(
+            "uq_reserva_fecha_activa",
+            "fecha",
+            unique=True,
+            postgresql_where=text(
+                "estado IN ('pendiente_pago', 'en_revision', 'confirmada')"
+            ),
+        ),
+    )

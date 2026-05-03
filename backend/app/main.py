@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import check_db_connection, Base, engine
-from .routers import zones_router, reservations_router, payments_router, admin_router
+from .routers import zones_router, reservations_router, payments_router, admin_router, auth_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -24,6 +24,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router, prefix="/api")
 app.include_router(zones_router, prefix="/api")
 app.include_router(reservations_router, prefix="/api")
 app.include_router(payments_router, prefix="/api")

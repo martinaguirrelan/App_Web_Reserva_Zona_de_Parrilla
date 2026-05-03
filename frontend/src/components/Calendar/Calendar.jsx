@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import './Calendar.css'
 
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -6,25 +7,21 @@ const MESES = [
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
 ]
 
-function getDaysInMonth(year, month) {
-  return new Date(year, month, 0).getDate()
-}
-
-function getFirstDayOfWeek(year, month) {
-  return new Date(year, month - 1, 1).getDay()
-}
-
 export default function Calendar({ year, month, availability, selectedDate, onSelectDate, onPrev, onNext }) {
-  const daysInMonth = getDaysInMonth(year, month)
-  const firstDow = getFirstDayOfWeek(year, month)
-  const today = new Date().toISOString().split('T')[0]
+  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
 
-  const cells = []
-  for (let i = 0; i < firstDow; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-    cells.push({ day: d, dateStr, ...(availability[dateStr] || {}) })
-  }
+  // Memoizamos el cálculo de celdas para evitar re-renderizados costosos
+  const cells = useMemo(() => {
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const firstDow = new Date(year, month - 1, 1).getDay()
+    const arr = []
+    for (let i = 0; i < firstDow; i++) arr.push(null)
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      arr.push({ day: d, dateStr, ...(availability[dateStr] || {}) })
+    }
+    return arr
+  }, [year, month, availability])
 
   return (
     <div className="calendar">
@@ -36,7 +33,6 @@ export default function Calendar({ year, month, availability, selectedDate, onSe
 
       <div className="calendar-legend">
         <span className="leg-item"><span className="leg-dot libre" />Disponible</span>
-        <span className="leg-item"><span className="leg-dot parcial" />Parcial</span>
         <span className="leg-item"><span className="leg-dot lleno" />Ocupado</span>
       </div>
 
@@ -51,6 +47,7 @@ export default function Calendar({ year, month, availability, selectedDate, onSe
           const isPast = cell.dateStr < today
           const isSelected = cell.dateStr === selectedDate
           const estado = cell.estado || 'libre'
+          const clickable = !isPast && estado !== 'lleno' && estado !== 'pasado'
 
           return (
             <div
@@ -60,17 +57,14 @@ export default function Calendar({ year, month, availability, selectedDate, onSe
                 estado,
                 isSelected ? 'selected' : '',
                 isPast ? 'past' : '',
-              ].join(' ')}
-              onClick={() => !isPast && estado !== 'lleno' && onSelectDate(cell.dateStr)}
-              title={isPast ? 'Fecha pasada' : `${cell.disponibles ?? '?'} turno(s) disponible(s)`}
+                clickable ? 'clickable' : '',
+              ].filter(Boolean).join(' ')}
+              onClick={() => clickable && onSelectDate(cell.dateStr)}
+              title={isPast ? 'Fecha pasada' : estado === 'lleno' ? 'Fecha ocupada' : 'Disponible'}
             >
               <span className="cal-day-num">{cell.day}</span>
-              {!isPast && estado !== 'pasado' && (
-                <span className="cal-dots">
-                  {Array.from({ length: cell.disponibles ?? 0 }).map((_, k) => (
-                    <span key={k} className="cal-dot-mini" />
-                  ))}
-                </span>
+              {!isPast && estado === 'libre' && (
+                <span className="cal-dot-mini" />
               )}
             </div>
           )

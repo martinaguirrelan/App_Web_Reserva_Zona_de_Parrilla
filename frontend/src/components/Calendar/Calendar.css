@@ -148,9 +148,18 @@
 }
 
 .cal-dot-mini {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--accent-light);
-  opacity: 0.7;
+  opacity: 0.8;
+}
+
+.cal-cell.clickable { cursor: pointer; }
+
+@media (max-width: 400px) {
+  .calendar { padding: 1rem 0.75rem; }
+  .cal-cell { min-height: 36px; padding: 4px 2px; }
+  .cal-day-num { font-size: 0.78rem; }
+  .calendar-legend { gap: 0.5rem; font-size: 0.72rem; }
 }

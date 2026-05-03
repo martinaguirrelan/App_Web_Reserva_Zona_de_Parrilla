@@ -7,6 +7,17 @@ export const adminGetReservations = (estado) =>
 export const adminUpdateEstado = (id, estado, notas_admin) =>
   client.patch(`/admin/reservations/${id}/estado`, { estado, notas_admin }).then((r) => r.data)
 
+export const adminExportExcel = async (estado) => {
+  const params = estado ? { estado } : {}
+  const res = await client.get('/admin/reservations/export', { params, responseType: 'blob' })
+  const url = URL.createObjectURL(res.data)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = estado ? `reservas_${estado}.xlsx` : 'reservas.xlsx'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // Zonas
 export const adminGetZones = () => client.get('/admin/zones').then((r) => r.data)
 

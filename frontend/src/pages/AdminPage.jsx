@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import StatusBadge from '../components/StatusBadge/StatusBadge'
+import { SkeletonBlock } from '../components/Skeleton/Skeleton'
 import {
-  adminGetReservations, adminUpdateEstado,
+  adminGetReservations, adminUpdateEstado, adminExportExcel,
   adminGetZones, adminCreateZone, adminUpdateZone, adminDeactivateZone, adminSeed,
 } from '../api/admin'
+import { adminGetStats } from '../api/auth'
+import { formatCurrency, formatDateShort } from '../utils/format'
+import client from '../api/client'
 import './AdminPage.css'
+
+// client se usa para GET /admin/reservations/{id}/payment
+
 
 const ESTADOS = ['', 'pendiente_pago', 'en_revision', 'confirmada', 'rechazada', 'cancelada']
 const ESTADO_LABELS = {
@@ -17,7 +24,21 @@ const ESTADO_LABELS = {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState('reservas')
+  const [tab, setTab] = useState('stats')
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const [stats, setStats] = useState(null)
+  const [loadingStats, setLoadingStats] = useState(false)
+
+  const fetchStats = useCallback(() => {
+    setLoadingStats(true)
+    adminGetStats()
+      .then(setStats)
+      .catch(() => {})
+      .finally(() => setLoadingStats(false))
+  }, [])
+
+  useEffect(() => { if (tab === 'stats') fetchStats() }, [fetchStats, tab])
 
   // ── Reservas ──────────────────────────────────────────────────────────────
   const [reservas, setReservas] = useState([])
@@ -25,6 +46,8 @@ export default function AdminPage() {
   const [loadingRes, setLoadingRes] = useState(false)
   const [updatingId, setUpdatingId] = useState(null)
   const [resError, setResError] = useState(null)
+  const [viewingPayment, setViewingPayment] = useState(null)
+  const [loadingPayment, setLoadingPayment] = useState(null)
 
   const fetchReservas = useCallback(() => {
     setLoadingRes(true)
@@ -49,7 +72,27 @@ export default function AdminPage() {
     }
   }
 
-  // ── Zonas ──────────────────────────────────────────────────────────────────
+  const handleVerComprobante = async (reservaId) => {
+    if (viewingPayment?.reservaId === reservaId) {
+      setViewingPayment(null)
+      return
+    }
+    setLoadingPayment(reservaId)
+    try {
+      const data = await client.get(`/admin/reservations/${reservaId}/payment`).then(r => r.data)
+      setViewingPayment({ reservaId, ...data })
+    } catch {
+      setResError('Sin comprobante cargado para esta reserva.')
+    } finally {
+      setLoadingPayment(null)
+    }
+  }
+
+  const handleExportExcel = () => {
+    adminExportExcel(filterEstado || undefined).catch(() => setResError('No se pudo exportar.'))
+  }
+
+  // ── Zonas ─────────────────────────────────────────────────────────────────
   const [zones, setZones] = useState([])
   const [loadingZones, setLoadingZones] = useState(false)
   const [zoneError, setZoneError] = useState(null)
@@ -74,9 +117,7 @@ export default function AdminPage() {
       const r = await adminSeed()
       setZoneMsg(r.mensaje)
       fetchZones()
-    } catch (err) {
-      setZoneError(err.message)
-    }
+    } catch (err) { setZoneError(err.message) }
   }
 
   const startEdit = (z) => {
@@ -94,9 +135,7 @@ export default function AdminPage() {
       setEditingZone(null)
       setZoneMsg('Zona actualizada.')
       fetchZones()
-    } catch (err) {
-      setZoneError(err.message)
-    }
+    } catch (err) { setZoneError(err.message) }
   }
 
   const handleDeactivate = async (id) => {
@@ -105,9 +144,7 @@ export default function AdminPage() {
       await adminDeactivateZone(id)
       setZoneMsg('Zona desactivada.')
       fetchZones()
-    } catch (err) {
-      setZoneError(err.message)
-    }
+    } catch (err) { setZoneError(err.message) }
   }
 
   const handleCreateZone = async (e) => {
@@ -122,15 +159,7 @@ export default function AdminPage() {
       setShowNewForm(false)
       setZoneMsg('Zona creada.')
       fetchZones()
-    } catch (err) {
-      setZoneError(err.message)
-    }
-  }
-
-  const formatFecha = (ds) => {
-    if (!ds) return ''
-    const [y, m, d] = ds.split('-')
-    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+    } catch (err) { setZoneError(err.message) }
   }
 
   return (
@@ -141,9 +170,85 @@ export default function AdminPage() {
       </div>
 
       <div className="admin-tabs">
+        <button className={tab === 'stats' ? 'active' : ''} onClick={() => setTab('stats')}>Dashboard</button>
         <button className={tab === 'reservas' ? 'active' : ''} onClick={() => setTab('reservas')}>Reservas</button>
         <button className={tab === 'zonas' ? 'active' : ''} onClick={() => setTab('zonas')}>Zonas y precios</button>
       </div>
+
+      {/* ── TAB DASHBOARD ──────────────────────────────────────────────────── */}
+      {tab === 'stats' && (
+        <div className="admin-section">
+          <div className="admin-toolbar">
+            <button className="btn-ghost" onClick={fetchStats}>↻ Actualizar</button>
+          </div>
+
+          {loadingStats ? (
+            <div className="stats-grid">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="stat-card">
+                  <SkeletonBlock height="1.5rem" width="50%" />
+                  <SkeletonBlock height="2.5rem" width="40%" />
+                </div>
+              ))}
+            </div>
+          ) : stats ? (
+            <>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <span className="stat-label">Total reservas</span>
+                  <span className="stat-value">{stats.total_reservas}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Últimos 30 días</span>
+                  <span className="stat-value">{stats.reservas_recientes_30d}</span>
+                </div>
+                <div className="stat-card accent">
+                  <span className="stat-label">Ingresos confirmados</span>
+                  <span className="stat-value">{formatCurrency(stats.ingresos_confirmados)}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Ingresos proyectados</span>
+                  <span className="stat-value">{formatCurrency(stats.ingresos_proyectados)}</span>
+                </div>
+              </div>
+
+              <div className="stats-row">
+                <div className="stats-panel">
+                  <h3>Por estado</h3>
+                  {Object.entries(stats.por_estado).map(([estado, count]) => (
+                    <div key={estado} className="stats-bar-row">
+                      <StatusBadge estado={estado} />
+                      <div className="stats-bar-wrap">
+                        <div
+                          className="stats-bar"
+                          style={{ width: `${stats.total_reservas ? (count / stats.total_reservas) * 100 : 0}%` }}
+                        />
+                      </div>
+                      <span className="stats-bar-count">{count}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="stats-panel">
+                  <h3>Por zona</h3>
+                  {Object.entries(stats.por_zona).length === 0 ? (
+                    <p className="empty-state">Sin datos</p>
+                  ) : (
+                    Object.entries(stats.por_zona).map(([zona, count]) => (
+                      <div key={zona} className="stats-zona-row">
+                        <span className="stats-zona-name">{zona}</span>
+                        <span className="stats-zona-count">{count} reservas</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="empty-state">No hay datos disponibles.</div>
+          )}
+        </div>
+      )}
 
       {/* ── TAB RESERVAS ──────────────────────────────────────────────────── */}
       {tab === 'reservas' && (
@@ -160,10 +265,35 @@ export default function AdminPage() {
                 </button>
               ))}
             </div>
-            <button className="btn-ghost" onClick={fetchReservas}>↻ Actualizar</button>
+            <div className="toolbar-actions">
+              <button className="btn-ghost" onClick={fetchReservas}>↻ Actualizar</button>
+              <button className="btn-ghost" onClick={handleExportExcel} title="Descargar Excel">
+                ↓ Excel
+              </button>
+            </div>
           </div>
 
           {resError && <div className="alert-error">{resError}</div>}
+
+          {/* Visor de comprobante */}
+          {viewingPayment && (
+            <div className="payment-viewer">
+              <div className="pv-header">
+                <strong>Comprobante: {viewingPayment.archivo_nombre}</strong>
+                <button className="btn-ghost" onClick={() => setViewingPayment(null)}>✕ Cerrar</button>
+              </div>
+              {viewingPayment.archivo_url.match(/\.(jpg|jpeg|png)$/i) ? (
+                <img src={viewingPayment.archivo_url} alt="Comprobante" className="pv-image" />
+              ) : (
+                <a href={viewingPayment.archivo_url} target="_blank" rel="noopener noreferrer" className="btn-primary">
+                  Abrir archivo →
+                </a>
+              )}
+              {viewingPayment.notas_admin && (
+                <p className="pv-notes">Notas: {viewingPayment.notas_admin}</p>
+              )}
+            </div>
+          )}
 
           {loadingRes ? (
             <div className="loading-row"><span className="spinner" /> Cargando…</div>
@@ -181,6 +311,7 @@ export default function AdminPage() {
                     <th>Horario</th>
                     <th>Monto</th>
                     <th>Estado</th>
+                    <th>Comprobante</th>
                     <th>Acción</th>
                   </tr>
                 </thead>
@@ -193,10 +324,23 @@ export default function AdminPage() {
                         <div className="res-depto">Depto {r.usuario.departamento}</div>
                       </td>
                       <td>{r.zona.nombre}</td>
-                      <td>{formatFecha(r.fecha)}</td>
+                      <td>{formatDateShort(r.fecha)}</td>
                       <td className="col-time">{r.hora_inicio.slice(0,5)} – {r.hora_fin.slice(0,5)}</td>
-                      <td>${Number(r.monto_total).toLocaleString('es-AR')}</td>
+                      <td>{formatCurrency(r.monto_total)}</td>
                       <td><StatusBadge estado={r.estado} /></td>
+                      <td>
+                        {r.estado !== 'pendiente_pago' ? (
+                          <button
+                            className="btn-ghost"
+                            disabled={loadingPayment === r.id}
+                            onClick={() => handleVerComprobante(r.id)}
+                          >
+                            {loadingPayment === r.id ? <span className="spinner" /> : '👁 Ver'}
+                          </button>
+                        ) : (
+                          <span className="col-na">—</span>
+                        )}
+                      </td>
                       <td>
                         <select
                           className="estado-select"
@@ -242,8 +386,8 @@ export default function AdminPage() {
                   <input value={newZoneForm.nombre} onChange={e => setNewZoneForm(f => ({...f, nombre: e.target.value}))} required />
                 </div>
                 <div className="field">
-                  <label>Precio base (ARS) *</label>
-                  <input type="number" min="0" value={newZoneForm.precio_base} onChange={e => setNewZoneForm(f => ({...f, precio_base: e.target.value}))} required />
+                  <label>Precio base (S/.) *</label>
+                  <input type="number" min="0" step="0.01" value={newZoneForm.precio_base} onChange={e => setNewZoneForm(f => ({...f, precio_base: e.target.value}))} required />
                 </div>
                 <div className="field zone-form-full">
                   <label>Descripción</label>
@@ -270,8 +414,8 @@ export default function AdminPage() {
                           <input value={zoneForm.nombre} onChange={e => setZoneForm(f => ({...f, nombre: e.target.value}))} />
                         </div>
                         <div className="field">
-                          <label>Precio base (ARS)</label>
-                          <input type="number" min="0" value={zoneForm.precio_base} onChange={e => setZoneForm(f => ({...f, precio_base: e.target.value}))} />
+                          <label>Precio base (S/.)</label>
+                          <input type="number" min="0" step="0.01" value={zoneForm.precio_base} onChange={e => setZoneForm(f => ({...f, precio_base: e.target.value}))} />
                         </div>
                         <div className="field zone-form-full">
                           <label>Descripción</label>
@@ -291,7 +435,7 @@ export default function AdminPage() {
                           {!z.activa && <span className="badge-inactive">Inactiva</span>}
                         </div>
                         {z.descripcion && <div className="zone-card-desc">{z.descripcion}</div>}
-                        <div className="zone-card-price">${Number(z.precio_base).toLocaleString('es-AR')}</div>
+                        <div className="zone-card-price">{formatCurrency(z.precio_base)}</div>
                       </div>
                       <div className="zone-card-actions">
                         <button className="btn-ghost" onClick={() => startEdit(z)}>Editar</button>

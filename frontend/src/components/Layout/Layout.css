@@ -19,3 +19,11 @@
   color: var(--text-muted);
   border-top: 1px solid var(--border);
 }
+
+@media (max-width: 768px) {
+  .layout-main { padding: 1.25rem 1rem; }
+}
+
+@media (max-width: 480px) {
+  .layout-main { padding: 1rem 0.75rem; }
+}

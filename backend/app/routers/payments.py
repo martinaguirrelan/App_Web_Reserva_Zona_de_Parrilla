@@ -1,3 +1,6 @@
+import re
+import os
+import unicodedata
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
@@ -11,6 +14,77 @@ router = APIRouter(prefix="/reservations", tags=["payments"])
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "application/pdf"}
 MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def sanitize_filename(name: str) -> str:
+    """Normaliza y limpia el nombre de archivo para evitar conflictos en OneDrive/filesystem."""
+    # Normalizar unicode → ASCII
+    name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    # Mantener solo caracteres seguros
+    name = re.sub(r"[^\w\s.\-]", "_", name)
+    # Colapsar espacios y guiones
+    name = re.sub(r"\s+", "_", name).strip("_.-")
+    # Limitar longitud
+    base, _, ext = name.rpartition(".")
+    if ext:
+        base = base[:100]
+        return f"{base}.{ext.lower()}"
+    return name[:100]
+
+
+def _upload_to_onedrive(content: bytes, filename: str, reservation_codigo: str) -> str:
+    """Sube el archivo a OneDrive via Microsoft Graph API. Devuelve la URL pública."""
+    import msal
+    import requests as req
+
+    authority = f"https://login.microsoftonline.com/{settings.azure_tenant_id}"
+    app = msal.ConfidentialClientApplication(
+        client_id=settings.azure_client_id,
+        authority=authority,
+        client_credential=settings.azure_client_secret,
+    )
+    result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+    if "access_token" not in result:
+        raise RuntimeError(f"Error autenticando con Azure AD: {result.get('error_description')}")
+
+    token = result["access_token"]
+    folder_path = f"{settings.onedrive_folder}/{reservation_codigo}"
+    user_id = settings.onedrive_user_id
+
+    upload_url = (
+        f"https://graph.microsoft.com/v1.0/users/{user_id}/drive/root:/{folder_path}/{filename}:/content"
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/octet-stream",
+    }
+    response = req.put(upload_url, headers=headers, data=content)
+    if response.status_code not in (200, 201):
+        raise RuntimeError(f"Error subiendo a OneDrive: {response.text}")
+
+    item = response.json()
+    # Intentar obtener enlace compartido
+    share_url = (
+        f"https://graph.microsoft.com/v1.0/users/{user_id}/drive/items/{item['id']}/createLink"
+    )
+    share_resp = req.post(
+        share_url,
+        headers={**headers, "Content-Type": "application/json"},
+        json={"type": "view", "scope": "organization"},
+    )
+    if share_resp.status_code == 200:
+        return share_resp.json().get("link", {}).get("webUrl", item.get("webUrl", ""))
+    return item.get("webUrl", upload_url)
+
+
+def _upload_local(content: bytes, filename: str, reservation_codigo: str) -> str:
+    """Fallback: guarda en /tmp cuando OneDrive no está configurado."""
+    folder = f"/tmp/comprobantes/{reservation_codigo}"
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, filename)
+    with open(path, "wb") as f:
+        f.write(content)
+    return f"/tmp/comprobantes/{reservation_codigo}/{filename}"
 
 
 @router.post("/{reservation_id}/payment", status_code=201)
@@ -36,25 +110,20 @@ async def upload_payment(
     if len(content) > MAX_SIZE_BYTES:
         raise HTTPException(status_code=400, detail="El archivo supera el límite de 10 MB.")
 
-    # Subir a Supabase Storage
-    from supabase import create_client
-    supabase = create_client(settings.supabase_url, settings.supabase_key)
-    file_path = f"comprobantes/{reserva.codigo}/{archivo.filename}"
+    safe_name = sanitize_filename(archivo.filename or "comprobante.pdf")
 
     try:
-        supabase.storage.from_("comprobantes").upload(
-            path=file_path,
-            file=content,
-            file_options={"content-type": archivo.content_type, "upsert": "true"},
-        )
-        public_url = supabase.storage.from_("comprobantes").get_public_url(file_path)
+        if settings.use_onedrive and settings.azure_client_id:
+            public_url = _upload_to_onedrive(content, safe_name, reserva.codigo)
+        else:
+            public_url = _upload_local(content, safe_name, reserva.codigo)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error al subir el archivo: {exc}")
 
     pago = Payment(
         reservation_id=reserva.id,
         archivo_url=public_url,
-        archivo_nombre=archivo.filename,
+        archivo_nombre=safe_name,
     )
     db.add(pago)
     reserva.estado = "en_revision"
@@ -64,4 +133,5 @@ async def upload_payment(
         "mensaje": "Comprobante recibido. La reserva pasó a estado 'En Revisión'.",
         "estado": "en_revision",
         "archivo_url": public_url,
+        "archivo_nombre": safe_name,
     }

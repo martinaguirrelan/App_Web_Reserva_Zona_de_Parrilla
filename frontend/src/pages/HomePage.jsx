@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Calendar from '../components/Calendar/Calendar'
 import TimeSlots from '../components/TimeSlots/TimeSlots'
+import { SkeletonCalendar, SkeletonCard } from '../components/Skeleton/Skeleton'
 import { getZones } from '../api/zones'
 import { getCalendar, getSlots } from '../api/reservations'
+import { formatCurrency, formatDateLong } from '../utils/format'
 import './HomePage.css'
 
 export default function HomePage() {
@@ -22,7 +24,6 @@ export default function HomePage() {
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [error, setError] = useState(null)
 
-  // Cargar zonas al montar
   useEffect(() => {
     getZones()
       .then((data) => {
@@ -32,7 +33,6 @@ export default function HomePage() {
       .catch(() => setError('No se pudieron cargar las zonas. Verificá que el backend esté activo.'))
   }, [])
 
-  // Cargar calendario cuando cambia zona o mes
   const fetchCalendar = useCallback(() => {
     if (!selectedZone) return
     setLoadingCal(true)
@@ -48,7 +48,6 @@ export default function HomePage() {
 
   useEffect(() => { fetchCalendar() }, [fetchCalendar])
 
-  // Cargar turnos cuando se selecciona un día
   const handleSelectDate = (dateStr) => {
     setSelectedDate(dateStr)
     setSelectedTurno(null)
@@ -56,7 +55,7 @@ export default function HomePage() {
     setLoadingSlots(true)
     getSlots(selectedZone.id, dateStr)
       .then(setSlots)
-      .catch(() => setError('Error al cargar turnos.'))
+      .catch(() => setError('Error al cargar disponibilidad.'))
       .finally(() => setLoadingSlots(false))
   }
 
@@ -74,10 +73,11 @@ export default function HomePage() {
     navigate('/reservar', { state: { zone: selectedZone, fecha: selectedDate, turno: selectedTurno } })
   }
 
-  const formatFecha = (dateStr) => {
-    const [y, m, d] = dateStr.split('-')
-    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
-  }
+  // Memoizamos el slot seleccionado para no recalcular en cada render
+  const slotSeleccionado = useMemo(
+    () => slots.find(s => s.turno === selectedTurno),
+    [slots, selectedTurno]
+  )
 
   if (error && zones.length === 0) {
     return (
@@ -92,7 +92,7 @@ export default function HomePage() {
     <div className="home">
       <div className="home-hero">
         <h1>Reservá tu espacio</h1>
-        <p>Seleccioná la zona, el día y el turno que más te convenga.</p>
+        <p>Seleccioná la zona y el día que más te convenga. Solo una reserva por día.</p>
       </div>
 
       {zones.length === 0 ? (
@@ -111,7 +111,7 @@ export default function HomePage() {
                 onClick={() => { setSelectedZone(z); setSelectedDate(null); setSlots([]); setSelectedTurno(null) }}
               >
                 <span className="zone-btn-name">{z.nombre}</span>
-                <span className="zone-btn-price">${Number(z.precio_base).toLocaleString('es-AR')}</span>
+                <span className="zone-btn-price">{formatCurrency(z.precio_base)}</span>
               </button>
             ))}
           </div>
@@ -120,7 +120,7 @@ export default function HomePage() {
             {/* Columna izquierda: calendario */}
             <div className="home-left">
               {loadingCal ? (
-                <div className="loading-box"><span className="spinner" />Cargando disponibilidad…</div>
+                <SkeletonCalendar />
               ) : (
                 <Calendar
                   year={year}
@@ -134,20 +134,21 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* Columna derecha: turnos + acción */}
+            {/* Columna derecha: turno + acción */}
             <div className="home-right">
               {!selectedDate ? (
                 <div className="home-prompt">
                   <span className="prompt-icon">📅</span>
-                  <p>Seleccioná un día en el calendario para ver los turnos disponibles.</p>
+                  <p>Seleccioná un día disponible en el calendario.</p>
+                  <p className="prompt-hint">El espacio es de uso exclusivo: solo una reserva por día.</p>
                 </div>
               ) : loadingSlots ? (
-                <div className="loading-box"><span className="spinner" />Cargando turnos…</div>
+                <SkeletonCard />
               ) : (
                 <>
                   <div className="selected-date-label">
                     <span className="sdl-dot" />
-                    {formatFecha(selectedDate)}
+                    {formatDateLong(selectedDate)}
                   </div>
 
                   <TimeSlots
@@ -162,12 +163,12 @@ export default function HomePage() {
                         <span>Zona</span><strong>{selectedZone.nombre}</strong>
                       </div>
                       <div className="rs-row">
-                        <span>Turno</span>
-                        <strong>{slots.find(s => s.turno === selectedTurno)?.label}</strong>
+                        <span>Horario</span>
+                        <strong>{slotSeleccionado?.label}</strong>
                       </div>
                       <div className="rs-row">
                         <span>Total</span>
-                        <strong className="rs-price">${Number(selectedZone.precio_base).toLocaleString('es-AR')}</strong>
+                        <strong className="rs-price">{formatCurrency(selectedZone.precio_base)}</strong>
                       </div>
                       <button className="btn-primary btn-full" onClick={handleReservar}>
                         Completar reserva →

@@ -129,4 +129,10 @@
 
 @media (max-width: 768px) {
   .rp-grid { grid-template-columns: 1fr; }
+  .rp-summary { order: -1; }
+}
+
+@media (max-width: 480px) {
+  .rp-title { font-size: 1.3rem; }
+  .rp-summary-card { padding: 1rem; }
 }

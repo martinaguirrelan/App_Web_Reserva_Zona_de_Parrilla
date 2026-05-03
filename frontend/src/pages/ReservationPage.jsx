@@ -1,15 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { createReservation } from '../api/reservations'
+import { formatCurrency, formatDateLong } from '../utils/format'
 import './ReservationPage.css'
-
-const TURNO_LABELS = {
-  manana: 'Turno Mañana  (09:00 – 13:00)',
-  tarde:  'Turno Tarde   (13:00 – 17:00)',
-  noche:  'Turno Noche   (17:00 – 22:00)',
-}
-
-const TURNO_ICONS = { manana: '🌅', tarde: '☀️', noche: '🌙' }
 
 export default function ReservationPage() {
   const navigate = useNavigate()
@@ -26,15 +19,10 @@ export default function ReservationPage() {
   if (!zone || !fecha || !turno) {
     return (
       <div className="rp-empty">
-        <p>No hay datos de reserva. Volvé al calendario y seleccioná una fecha y turno.</p>
+        <p>No hay datos de reserva. Volvé al calendario y seleccioná una fecha.</p>
         <Link to="/" className="btn-primary">Volver al calendario</Link>
       </div>
     )
-  }
-
-  const formatFecha = (ds) => {
-    const [y, m, d] = ds.split('-')
-    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   }
 
   const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
@@ -77,15 +65,15 @@ export default function ReservationPage() {
             <div className="rp-summary-zone">{zone.nombre}</div>
             <div className="rp-summary-row">
               <span>📅 Fecha</span>
-              <strong>{formatFecha(fecha)}</strong>
+              <strong>{formatDateLong(fecha)}</strong>
             </div>
             <div className="rp-summary-row">
-              <span>{TURNO_ICONS[turno]} Turno</span>
-              <strong>{TURNO_LABELS[turno]}</strong>
+              <span>🏠 Horario</span>
+              <strong>Turno Completo (09:00 – 22:00)</strong>
             </div>
             <div className="rp-summary-row rp-summary-total">
               <span>Total</span>
-              <strong>${Number(zone.precio_base).toLocaleString('es-AR')}</strong>
+              <strong>{formatCurrency(zone.precio_base)}</strong>
             </div>
             {zone.descripcion && (
               <p className="rp-summary-desc">{zone.descripcion}</p>
