@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     onedrive_user_id: str = "me"          # UPN o ID del usuario propietario del OneDrive
     onedrive_folder: str = "Comprobantes/ReservasParrilla"
 
+    # Supabase Storage (recomendado — bucket público "vouchers")
+    use_supabase_storage: bool = True
+    supabase_storage_bucket: str = "vouchers"
+
     # Habilitar OneDrive (False = fallback a almacenamiento local en /tmp)
     use_onedrive: bool = False
 

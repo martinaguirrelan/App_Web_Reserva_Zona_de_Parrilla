@@ -389,10 +389,21 @@ export default function AdminPage() {
             <div className="payment-viewer">
               <div className="pv-header">
                 <strong>Comprobante: {viewingPayment.archivo_nombre}</strong>
-                <button className="btn-ghost" onClick={() => setViewingPayment(null)}>✕ Cerrar</button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <a href={viewingPayment.archivo_url} target="_blank" rel="noopener noreferrer" className="btn-ghost">
+                    ↗ Abrir
+                  </a>
+                  <button className="btn-ghost" onClick={() => setViewingPayment(null)}>✕ Cerrar</button>
+                </div>
               </div>
               {viewingPayment.archivo_url.match(/\.(jpg|jpeg|png)$/i) ? (
                 <img src={viewingPayment.archivo_url} alt="Comprobante" className="pv-image" />
+              ) : viewingPayment.archivo_url.match(/\.pdf$/i) || viewingPayment.archivo_url.startsWith('http') ? (
+                <iframe
+                  src={viewingPayment.archivo_url}
+                  className="pv-iframe"
+                  title="Comprobante PDF"
+                />
               ) : (
                 <a href={viewingPayment.archivo_url} target="_blank" rel="noopener noreferrer" className="btn-primary">
                   Abrir archivo →

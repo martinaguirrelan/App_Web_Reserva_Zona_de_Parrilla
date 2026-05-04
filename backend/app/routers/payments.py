@@ -17,19 +17,35 @@ MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 def sanitize_filename(name: str) -> str:
-    """Normaliza y limpia el nombre de archivo para evitar conflictos en OneDrive/filesystem."""
-    # Normalizar unicode → ASCII
+    """Normaliza y limpia el nombre de archivo."""
     name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
-    # Mantener solo caracteres seguros
     name = re.sub(r"[^\w\s.\-]", "_", name)
-    # Colapsar espacios y guiones
     name = re.sub(r"\s+", "_", name).strip("_.-")
-    # Limitar longitud
     base, _, ext = name.rpartition(".")
     if ext:
         base = base[:100]
         return f"{base}.{ext.lower()}"
     return name[:100]
+
+
+def _upload_to_supabase(content: bytes, filename: str, reservation_codigo: str, content_type: str) -> str:
+    """Sube el archivo a Supabase Storage y devuelve la URL pública."""
+    from supabase import create_client
+
+    sb = create_client(settings.supabase_url, settings.supabase_key)
+    bucket = settings.supabase_storage_bucket
+    path = f"{reservation_codigo}/{filename}"
+
+    # Subir archivo (upsert para sobrescribir si ya existe)
+    sb.storage.from_(bucket).upload(
+        path=path,
+        file=content,
+        file_options={"content-type": content_type, "upsert": "true"},
+    )
+
+    # Obtener URL pública permanente
+    public_url = sb.storage.from_(bucket).get_public_url(path)
+    return public_url
 
 
 def _upload_to_onedrive(content: bytes, filename: str, reservation_codigo: str) -> str:
@@ -63,7 +79,6 @@ def _upload_to_onedrive(content: bytes, filename: str, reservation_codigo: str) 
         raise RuntimeError(f"Error subiendo a OneDrive: {response.text}")
 
     item = response.json()
-    # Intentar obtener enlace compartido
     share_url = (
         f"https://graph.microsoft.com/v1.0/users/{user_id}/drive/items/{item['id']}/createLink"
     )
@@ -78,7 +93,7 @@ def _upload_to_onedrive(content: bytes, filename: str, reservation_codigo: str) 
 
 
 def _upload_local(content: bytes, filename: str, reservation_codigo: str) -> str:
-    """Fallback: guarda en /tmp cuando OneDrive no está configurado."""
+    """Fallback: guarda en /tmp (solo para desarrollo local)."""
     folder = f"/tmp/comprobantes/{reservation_codigo}"
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, filename)
@@ -111,9 +126,12 @@ async def upload_payment(
         raise HTTPException(status_code=400, detail="El archivo supera el límite de 10 MB.")
 
     safe_name = sanitize_filename(archivo.filename or "comprobante.pdf")
+    content_type = archivo.content_type
 
     try:
-        if settings.use_onedrive and settings.azure_client_id:
+        if settings.use_supabase_storage and settings.supabase_url and settings.supabase_key:
+            public_url = _upload_to_supabase(content, safe_name, reserva.codigo, content_type)
+        elif settings.use_onedrive and settings.azure_client_id:
             public_url = _upload_to_onedrive(content, safe_name, reserva.codigo)
         else:
             public_url = _upload_local(content, safe_name, reserva.codigo)
