@@ -104,13 +104,11 @@ def get_payment_info(
     if not reserva.pagos:
         raise HTTPException(status_code=404, detail="Sin comprobante cargado.")
     pago = reserva.pagos[-1]
-    viewable = _get_viewable_url(pago.archivo_url)
     return {
-        "archivo_url": viewable,
+        "archivo_url": _get_viewable_url(pago.archivo_url),
         "archivo_nombre": pago.archivo_nombre,
         "notas_admin": pago.notas_admin,
         "created_at": pago.created_at,
-        "_debug_stored_url": pago.archivo_url,   # temporal para diagnóstico
     }
 
 
