@@ -16,6 +16,9 @@ class ReservationCreate(BaseModel):
     notas: str | None = None
     banco_nombre: str | None = None
     cuenta_numero: str | None = None
+    refund_method: str | None = None
+    cuenta_interbancaria: str | None = None
+    numero_celular_devolucion: str | None = None
 
 
 class ReservationResponse(BaseModel):
@@ -35,6 +38,9 @@ class ReservationResponse(BaseModel):
     cuenta_numero: str | None = None
     monto_limpieza: Decimal | None = None
     monto_garantia_dev: Decimal | None = None
+    refund_method: str | None = None
+    cuenta_interbancaria: str | None = None
+    numero_celular_devolucion: str | None = None
 
     model_config = {"from_attributes": True}
 

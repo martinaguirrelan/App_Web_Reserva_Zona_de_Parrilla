@@ -7,13 +7,20 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+from pydantic import BaseModel
+
 from ..database import get_db
 from ..models.reservation import Reservation
 from ..models.zone import Zone
 from ..models.payment import Payment
+from ..models.setting import SystemSetting
 from ..schemas.zone import ZoneCreate, ZoneUpdate, ZoneResponse
 from ..schemas.reservation import ReservationResponse, ReservationStatusUpdate
 from .auth import get_current_admin
+
+
+class SettingUpdate(BaseModel):
+    value: str
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -293,3 +300,29 @@ def seed_zones(
     db.add_all(defaults)
     db.commit()
     return {"mensaje": f"{len(defaults)} zonas creadas correctamente."}
+
+
+# ── Configuración / Settings ──────────────────────────────────────────────────
+
+@router.get("/settings")
+def list_settings(
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_admin),
+):
+    rows = db.query(SystemSetting).all()
+    return {r.key: r.value for r in rows}
+
+
+@router.put("/settings/{key}")
+def update_setting(
+    key: str,
+    data: SettingUpdate,
+    db: Session = Depends(get_db),
+    _: str = Depends(get_current_admin),
+):
+    setting = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+    if not setting:
+        raise HTTPException(status_code=404, detail="Configuración no encontrada")
+    setting.value = data.value
+    db.commit()
+    return {"key": key, "value": setting.value}

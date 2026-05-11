@@ -375,6 +375,34 @@
 .neto-positivo { color: #22c55e; font-size: 1.1rem; }
 .neto-negativo { color: #ef4444; font-size: 1.1rem; }
 .modal-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.modal-warning {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  background: #ef444415;
+  border: 1px solid #ef444430;
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.9rem;
+}
+
+/* ── Banking method badge ─────────────────────────────────────────────────── */
+.banking-method-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #8b5cf620;
+  color: #8b5cf6;
+  vertical-align: middle;
+}
+
+/* ── Settings tab ─────────────────────────────────────────────────────────── */
+.section-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
+.section-subtitle { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.5rem; }
+.settings-form { display: flex; flex-direction: column; gap: 1.25rem; max-width: 560px; }
+.settings-field-row { display: flex; gap: 0.75rem; align-items: center; }
+.settings-field-row input { flex: 1; }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {

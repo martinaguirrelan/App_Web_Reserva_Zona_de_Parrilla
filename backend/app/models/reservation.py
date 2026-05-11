@@ -34,6 +34,9 @@ class Reservation(Base):
     cuenta_numero = Column(String(50), nullable=True)
     monto_limpieza = Column(Numeric(10, 2), nullable=True)
     monto_garantia_dev = Column(Numeric(10, 2), nullable=True)
+    refund_method = Column(String(20), nullable=True)             # banco | plin | yape
+    cuenta_interbancaria = Column(String(50), nullable=True)      # CCI
+    numero_celular_devolucion = Column(String(20), nullable=True) # 9 dígitos
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
