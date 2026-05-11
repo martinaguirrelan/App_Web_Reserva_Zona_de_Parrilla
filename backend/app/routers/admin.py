@@ -10,6 +10,7 @@ from sqlalchemy import func
 from pydantic import BaseModel
 
 from ..database import get_db
+from ..config import settings
 from ..models.reservation import Reservation
 from ..models.zone import Zone
 from ..models.payment import Payment
@@ -67,6 +68,32 @@ def update_estado(
     return {"mensaje": "Estado actualizado", "estado": data.estado}
 
 
+def _get_viewable_url(stored_url: str) -> str:
+    """Genera una URL firmada de Supabase (1 h) para visualizar el comprobante.
+    Si Supabase no está configurado, devuelve la URL original."""
+    if not (settings.use_supabase_storage and settings.supabase_url and settings.supabase_key):
+        return stored_url
+    try:
+        from supabase import create_client
+        sb = create_client(settings.supabase_url, settings.supabase_key)
+        bucket = settings.supabase_storage_bucket
+        # Extraer el path relativo al bucket desde la URL almacenada
+        # Formato: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
+        marker = f"/object/public/{bucket}/"
+        if marker in stored_url:
+            path = stored_url.split(marker, 1)[1]
+        else:
+            # Intentar con /object/sign/ por si ya era firmada antes
+            return stored_url
+        result = sb.storage.from_(bucket).create_signed_url(path, 3600)
+        # supabase-py 2.x devuelve dict con "signedURL"; 1.x puede devolver directamente la URL
+        if isinstance(result, dict):
+            return result.get("signedURL") or result.get("signed_url") or stored_url
+        return str(result)
+    except Exception:
+        return stored_url
+
+
 @router.get("/reservations/{reservation_id}/payment")
 def get_payment_info(
     reservation_id: UUID,
@@ -81,7 +108,7 @@ def get_payment_info(
         raise HTTPException(status_code=404, detail="Sin comprobante cargado.")
     pago = reserva.pagos[-1]
     return {
-        "archivo_url": pago.archivo_url,
+        "archivo_url": _get_viewable_url(pago.archivo_url),
         "archivo_nombre": pago.archivo_nombre,
         "notas_admin": pago.notas_admin,
         "created_at": pago.created_at,

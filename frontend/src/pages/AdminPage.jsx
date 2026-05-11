@@ -481,19 +481,29 @@ export default function AdminPage() {
                   <button className="btn-ghost" onClick={() => setViewingPayment(null)}>✕ Cerrar</button>
                 </div>
               </div>
-              {viewingPayment.archivo_url.match(/\.(jpg|jpeg|png)$/i) ? (
-                <img src={viewingPayment.archivo_url} alt="Comprobante" className="pv-image" />
-              ) : viewingPayment.archivo_url.match(/\.pdf$/i) || viewingPayment.archivo_url.startsWith('http') ? (
+              {viewingPayment.archivo_nombre?.match(/\.(jpg|jpeg|png)$/i) ? (
+                <img
+                  src={viewingPayment.archivo_url}
+                  alt="Comprobante"
+                  className="pv-image"
+                  onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block' }}
+                />
+              ) : (
                 <iframe
                   src={viewingPayment.archivo_url}
                   className="pv-iframe"
-                  title="Comprobante PDF"
+                  title="Comprobante"
                 />
-              ) : (
-                <a href={viewingPayment.archivo_url} target="_blank" rel="noopener noreferrer" className="btn-primary">
-                  Abrir archivo →
-                </a>
               )}
+              <a
+                href={viewingPayment.archivo_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-ghost pv-open-btn"
+                style={{ display: 'none' }}
+              >
+                No se pudo previsualizar — Abrir en nueva pestaña →
+              </a>
               {viewingPayment.notas_admin && (
                 <p className="pv-notes">Notas: {viewingPayment.notas_admin}</p>
               )}
