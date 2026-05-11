@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     # Supabase
     supabase_url: str = ""
     supabase_key: str = ""
+    # Service role key (para signed URLs en buckets privados).
+    # Supabase dashboard → Settings → API → service_role key
+    supabase_service_key: str = ""
 
     # PostgreSQL directo (Supabase connection string)
     database_url: str

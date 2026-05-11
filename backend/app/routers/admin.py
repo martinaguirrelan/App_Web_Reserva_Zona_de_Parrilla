@@ -70,27 +70,48 @@ def update_estado(
 
 def _get_viewable_url(stored_url: str) -> str:
     """Genera una URL firmada de Supabase (1 h) para visualizar el comprobante.
-    Si Supabase no está configurado, devuelve la URL original."""
-    if not (settings.use_supabase_storage and settings.supabase_url and settings.supabase_key):
+    Usa service_role key si está configurada (necesaria para buckets privados).
+    Si falla, devuelve la URL original."""
+    if not (settings.use_supabase_storage and settings.supabase_url):
         return stored_url
+
+    # Preferir service_role key; si no está, usar la anon key
+    key = settings.supabase_service_key or settings.supabase_key
+    if not key:
+        return stored_url
+
+    bucket = settings.supabase_storage_bucket
+
+    # Extraer path relativo desde la URL almacenada
+    # Soporta formato público:  .../object/public/<bucket>/<path>
+    # Soporta formato firmado:  .../object/sign/<bucket>/<path>
+    for marker in (f"/object/public/{bucket}/", f"/object/sign/{bucket}/"):
+        if marker in stored_url:
+            path = stored_url.split(marker, 1)[1].split("?")[0]  # quitar query params
+            break
+    else:
+        return stored_url
+
     try:
         from supabase import create_client
-        sb = create_client(settings.supabase_url, settings.supabase_key)
-        bucket = settings.supabase_storage_bucket
-        # Extraer el path relativo al bucket desde la URL almacenada
-        # Formato: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
-        marker = f"/object/public/{bucket}/"
-        if marker in stored_url:
-            path = stored_url.split(marker, 1)[1]
-        else:
-            # Intentar con /object/sign/ por si ya era firmada antes
-            return stored_url
+        sb = create_client(settings.supabase_url, key)
         result = sb.storage.from_(bucket).create_signed_url(path, 3600)
-        # supabase-py 2.x devuelve dict con "signedURL"; 1.x puede devolver directamente la URL
+        # supabase-py 2.x: result es dict {"signedURL": "..."}
+        # supabase-py <2: puede ser dict con "signedUrl" o string
         if isinstance(result, dict):
-            return result.get("signedURL") or result.get("signed_url") or stored_url
-        return str(result)
-    except Exception:
+            signed = (
+                result.get("signedURL")
+                or result.get("signedUrl")
+                or result.get("signed_url")
+            )
+            return signed if signed else stored_url
+        if isinstance(result, str) and result.startswith("http"):
+            return result
+        return stored_url
+    except Exception as e:
+        # Loguear para ayudar a diagnosticar sin romper la respuesta
+        import logging
+        logging.getLogger(__name__).warning("Error generando signed URL: %s", e)
         return stored_url
 
 
