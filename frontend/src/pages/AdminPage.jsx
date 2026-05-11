@@ -4,6 +4,7 @@ import { SkeletonBlock } from '../components/Skeleton/Skeleton'
 import {
   adminGetReservations, adminUpdateEstado, adminExportExcel,
   adminGetZones, adminCreateZone, adminUpdateZone, adminDeactivateZone, adminSeed,
+  adminGetSettings, adminUpdateSetting,
 } from '../api/admin'
 import { adminGetStats } from '../api/auth'
 import { formatCurrency, formatDateShort } from '../utils/format'
@@ -20,6 +21,8 @@ const ESTADO_LABELS = {
   cancelada:            'Cancelada',
   pendiente_devolucion: 'Pendiente Devolución',
 }
+
+const REFUND_METHOD_LABELS = { banco: 'Transferencia bancaria', plin: 'Plin', yape: 'Yape' }
 
 export default function AdminPage() {
   const [tab, setTab] = useState('stats')
@@ -49,9 +52,13 @@ export default function AdminPage() {
   const [viewingBanking, setViewingBanking] = useState(null)
 
   // Modal devolución
-  const [devolucionModal, setDevolucionModal] = useState(null) // { reservaId, codigo }
+  const [devolucionModal, setDevolucionModal] = useState(null)
   const [devolucionForm, setDevolucionForm] = useState({ monto_garantia_dev: '', monto_limpieza: '' })
   const [devolucionLoading, setDevolucionLoading] = useState(false)
+
+  // Modal rechazo (Feature 1)
+  const [rechazoModal, setRechazoModal] = useState(null) // { reservaId, codigo }
+  const [rechazoLoading, setRechazoLoading] = useState(false)
 
   const fetchReservas = useCallback(() => {
     setLoadingRes(true)
@@ -82,6 +89,10 @@ export default function AdminPage() {
       setDevolucionModal({ reservaId: reserva.id, codigo: reserva.codigo })
       return
     }
+    if (newEstado === 'rechazada') {
+      setRechazoModal({ reservaId: reserva.id, codigo: reserva.codigo })
+      return
+    }
     handleEstado(reserva.id, newEstado)
   }
 
@@ -108,6 +119,19 @@ export default function AdminPage() {
       setResError('No se pudo actualizar el estado.')
     } finally {
       setDevolucionLoading(false)
+    }
+  }
+
+  const confirmRechazo = async () => {
+    setRechazoLoading(true)
+    try {
+      await adminUpdateEstado(rechazoModal.reservaId, 'rechazada')
+      setRechazoModal(null)
+      fetchReservas()
+    } catch {
+      setResError('No se pudo rechazar la reserva.')
+    } finally {
+      setRechazoLoading(false)
     }
   }
 
@@ -211,6 +235,37 @@ export default function AdminPage() {
     } catch (err) { setZoneError(err.message) }
   }
 
+  // ── Configuración (Feature 2) ──────────────────────────────────────────────
+  const [settings, setSettings] = useState({ bank_account: '', interbank_account: '' })
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsMsg, setSettingsMsg] = useState(null)
+  const [settingsError, setSettingsError] = useState(null)
+
+  const fetchSettings = useCallback(() => {
+    setSettingsLoading(true)
+    adminGetSettings()
+      .then(setSettings)
+      .catch(() => setSettingsError('Error al cargar la configuración.'))
+      .finally(() => setSettingsLoading(false))
+  }, [])
+
+  useEffect(() => { if (tab === 'configuracion') fetchSettings() }, [fetchSettings, tab])
+
+  const handleSaveSetting = async (key) => {
+    setSettingsSaving(true)
+    setSettingsMsg(null)
+    setSettingsError(null)
+    try {
+      await adminUpdateSetting(key, settings[key])
+      setSettingsMsg('Configuración guardada.')
+    } catch {
+      setSettingsError('No se pudo guardar la configuración.')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
   // ── Cálculo neto devolución ────────────────────────────────────────────────
   const garantia = parseFloat(devolucionForm.monto_garantia_dev) || 0
   const limpieza = parseFloat(devolucionForm.monto_limpieza) || 0
@@ -218,7 +273,8 @@ export default function AdminPage() {
 
   return (
     <div className="admin">
-      {/* Modal devolución */}
+
+      {/* ── Modal devolución ──────────────────────────────────────────────── */}
       {devolucionModal && (
         <div className="modal-overlay" onClick={() => setDevolucionModal(null)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
@@ -273,6 +329,34 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* ── Modal rechazo (Feature 1) ──────────────────────────────────────── */}
+      {rechazoModal && (
+        <div className="modal-overlay" onClick={() => setRechazoModal(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Rechazar reserva</h3>
+              <button className="btn-ghost" onClick={() => setRechazoModal(null)}>✕</button>
+            </div>
+            <p className="modal-subtitle">
+              Reserva <strong>{rechazoModal.codigo}</strong>
+            </p>
+            <p className="modal-warning">
+              Al rechazar, la fecha quedará disponible inmediatamente para nuevas reservas.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="btn-danger"
+                onClick={confirmRechazo}
+                disabled={rechazoLoading}
+              >
+                {rechazoLoading ? <><span className="spinner" /> Rechazando…</> : 'Confirmar rechazo'}
+              </button>
+              <button className="btn-ghost" onClick={() => setRechazoModal(null)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="admin-header">
         <h1>Panel de administración</h1>
         <p>Gestioná reservas y zonas del sistema.</p>
@@ -282,6 +366,7 @@ export default function AdminPage() {
         <button className={tab === 'stats' ? 'active' : ''} onClick={() => setTab('stats')}>Dashboard</button>
         <button className={tab === 'reservas' ? 'active' : ''} onClick={() => setTab('reservas')}>Reservas</button>
         <button className={tab === 'zonas' ? 'active' : ''} onClick={() => setTab('zonas')}>Zonas y precios</button>
+        <button className={tab === 'configuracion' ? 'active' : ''} onClick={() => setTab('configuracion')}>Configuración</button>
       </div>
 
       {/* ── TAB DASHBOARD ──────────────────────────────────────────────────── */}
@@ -415,22 +500,53 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Visor de datos bancarios */}
+          {/* Visor de datos bancarios — condicional por método (Feature 3) */}
           {viewingBanking && (
             <div className="payment-viewer banking-viewer">
               <div className="pv-header">
-                <strong>Datos bancarios — {viewingBanking.codigo}</strong>
+                <strong>
+                  Datos de devolución — {viewingBanking.codigo}
+                  {viewingBanking.refund_method && (
+                    <span className="banking-method-badge">
+                      {REFUND_METHOD_LABELS[viewingBanking.refund_method] || viewingBanking.refund_method}
+                    </span>
+                  )}
+                </strong>
                 <button className="btn-ghost" onClick={() => setViewingBanking(null)}>✕ Cerrar</button>
               </div>
               <div className="banking-grid">
-                <div className="banking-row">
-                  <span>Banco</span>
-                  <strong>{viewingBanking.banco_nombre || '—'}</strong>
-                </div>
-                <div className="banking-row">
-                  <span>N° de cuenta</span>
-                  <strong>{viewingBanking.cuenta_numero || '—'}</strong>
-                </div>
+                {/* Datos para transferencia bancaria */}
+                {(!viewingBanking.refund_method || viewingBanking.refund_method === 'banco') && (
+                  <>
+                    {viewingBanking.banco_nombre && (
+                      <div className="banking-row">
+                        <span>Banco</span>
+                        <strong>{viewingBanking.banco_nombre}</strong>
+                      </div>
+                    )}
+                    {viewingBanking.cuenta_interbancaria && (
+                      <div className="banking-row">
+                        <span>CCI (interbancaria)</span>
+                        <strong>{viewingBanking.cuenta_interbancaria}</strong>
+                      </div>
+                    )}
+                    {viewingBanking.cuenta_numero && (
+                      <div className="banking-row">
+                        <span>N° de cuenta</span>
+                        <strong>{viewingBanking.cuenta_numero}</strong>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Datos para Plin / Yape */}
+                {(viewingBanking.refund_method === 'plin' || viewingBanking.refund_method === 'yape') && (
+                  <div className="banking-row">
+                    <span>N° celular ({REFUND_METHOD_LABELS[viewingBanking.refund_method]})</span>
+                    <strong>{viewingBanking.numero_celular_devolucion || '—'}</strong>
+                  </div>
+                )}
+
                 <div className="banking-row">
                   <span>Garantía a devolver</span>
                   <strong>{viewingBanking.monto_garantia_dev != null ? formatCurrency(viewingBanking.monto_garantia_dev) : '—'}</strong>
@@ -493,7 +609,7 @@ export default function AdminPage() {
                               {loadingPayment === r.id ? <span className="spinner" /> : '👁 Ver'}
                             </button>
                           )}
-                          {r.estado === 'pendiente_devolucion' && r.banco_nombre && (
+                          {r.estado === 'pendiente_devolucion' && (r.banco_nombre || r.refund_method) && (
                             <button
                               className="btn-ghost btn-purple"
                               onClick={() => handleVerBanking(r)}
@@ -612,6 +728,63 @@ export default function AdminPage() {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB CONFIGURACIÓN (Feature 2) ─────────────────────────────────── */}
+      {tab === 'configuracion' && (
+        <div className="admin-section">
+          {settingsError && <div className="alert-error" onClick={() => setSettingsError(null)}>{settingsError} ✕</div>}
+          {settingsMsg  && <div className="alert-success" onClick={() => setSettingsMsg(null)}>{settingsMsg} ✕</div>}
+
+          <h2 className="section-title">Credenciales de pago</h2>
+          <p className="section-subtitle">
+            Estos datos se muestran al residente en el formulario de reserva para que realice la transferencia.
+          </p>
+
+          {settingsLoading ? (
+            <div className="loading-row"><span className="spinner" /> Cargando configuración…</div>
+          ) : (
+            <div className="settings-form">
+              <div className="field">
+                <label>Número de cuenta bancaria</label>
+                <div className="settings-field-row">
+                  <input
+                    value={settings.bank_account || ''}
+                    onChange={(e) => setSettings(s => ({ ...s, bank_account: e.target.value }))}
+                    placeholder="Ej: 19412345678901"
+                    disabled={settingsSaving}
+                  />
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleSaveSetting('bank_account')}
+                    disabled={settingsSaving}
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+
+              <div className="field">
+                <label>CCI (cuenta interbancaria)</label>
+                <div className="settings-field-row">
+                  <input
+                    value={settings.interbank_account || ''}
+                    onChange={(e) => setSettings(s => ({ ...s, interbank_account: e.target.value }))}
+                    placeholder="Ej: 00219412345678901234"
+                    disabled={settingsSaving}
+                  />
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleSaveSetting('interbank_account')}
+                    disabled={settingsSaving}
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

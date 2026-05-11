@@ -18,6 +18,13 @@ export const adminExportExcel = async (estado) => {
   URL.revokeObjectURL(url)
 }
 
+// Configuración
+export const adminGetSettings = () =>
+  client.get('/admin/settings').then((r) => r.data)
+
+export const adminUpdateSetting = (key, value) =>
+  client.put(`/admin/settings/${key}`, { value }).then((r) => r.data)
+
 // Zonas
 export const adminGetZones = () => client.get('/admin/zones').then((r) => r.data)
 
