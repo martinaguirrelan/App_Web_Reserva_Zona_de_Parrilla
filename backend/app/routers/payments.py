@@ -29,21 +29,22 @@ def sanitize_filename(name: str) -> str:
 
 
 def _upload_to_supabase(content: bytes, filename: str, reservation_codigo: str, content_type: str) -> str:
-    """Sube el archivo a Supabase Storage y devuelve la URL pública."""
+    """Sube el archivo a Supabase Storage y devuelve la URL pública.
+    Usa service_role key si está disponible (bypass RLS); si no, usa anon key."""
     from supabase import create_client
 
-    sb = create_client(settings.supabase_url, settings.supabase_key)
+    # La service_role key bypasea las políticas RLS para operaciones de escritura
+    key = settings.supabase_service_key or settings.supabase_key
+    sb = create_client(settings.supabase_url, key)
     bucket = settings.supabase_storage_bucket
     path = f"{reservation_codigo}/{filename}"
 
-    # Subir archivo (upsert para sobrescribir si ya existe)
     sb.storage.from_(bucket).upload(
         path=path,
         file=content,
         file_options={"content-type": content_type, "upsert": "true"},
     )
 
-    # Obtener URL pública permanente
     public_url = sb.storage.from_(bucket).get_public_url(path)
     return public_url
 
