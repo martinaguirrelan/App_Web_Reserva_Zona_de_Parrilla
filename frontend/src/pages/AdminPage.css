@@ -375,6 +375,37 @@
 .modal-neto span { color: var(--text-secondary); }
 .neto-positivo { color: #22c55e; font-size: 1.1rem; }
 .neto-negativo { color: #ef4444; font-size: 1.1rem; }
+.modal-queda { border-color: #8b5cf640; background: #8b5cf610; }
+.modal-queda strong { color: #8b5cf6; font-size: 1.1rem; }
+
+/* ── Destino de devolución dentro del modal ───────────────────────────────── */
+.modal-destino {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+}
+.modal-destino-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-destino-head span { font-size: 0.8rem; color: var(--text-secondary); }
+.modal-destino-head strong { color: #8b5cf6; font-size: 0.9rem; }
+.modal-destino-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+}
+.modal-destino-row span { color: var(--text-secondary); }
+.modal-destino-row strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .modal-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .modal-warning {
   font-size: 0.875rem;

@@ -16,11 +16,15 @@ const ESTADO_LABELS = {
   '': 'Todos',
   pendiente_pago:       'Pendiente de Pago',
   en_revision:          'En Revisión',
-  confirmada:           'Confirmada',
-  rechazada:            'Rechazada',
+  confirmada:           'Pago Confirmado',
+  rechazada:            'Rechazado',
   cancelada:            'Cancelada',
-  pendiente_devolucion: 'Pendiente Devolución',
+  pendiente_devolucion: 'Terminado',
 }
+
+// Las 3 acciones que el admin puede aplicar. Los estados de entrada
+// (pendiente_pago / en_revision) siguen llegando solos como bandeja.
+const ADMIN_ACTIONS = ['confirmada', 'pendiente_devolucion', 'rechazada']
 
 const REFUND_METHOD_LABELS = { banco: 'Transferencia bancaria', plin: 'Plin', yape: 'Yape' }
 
@@ -86,7 +90,7 @@ export default function AdminPage() {
   const handleSelectEstado = (reserva, newEstado) => {
     if (newEstado === 'pendiente_devolucion') {
       setDevolucionForm({ monto_garantia_dev: '', monto_limpieza: '' })
-      setDevolucionModal({ reservaId: reserva.id, codigo: reserva.codigo })
+      setDevolucionModal(reserva)
       return
     }
     if (newEstado === 'rechazada') {
@@ -109,7 +113,7 @@ export default function AdminPage() {
     }
     setDevolucionLoading(true)
     try {
-      await adminUpdateEstado(devolucionModal.reservaId, 'pendiente_devolucion', {
+      await adminUpdateEstado(devolucionModal.id, 'pendiente_devolucion', {
         monto_garantia_dev: garantia,
         monto_limpieza: limpieza,
       })
@@ -269,7 +273,9 @@ export default function AdminPage() {
   // ── Cálculo neto devolución ────────────────────────────────────────────────
   const garantia = parseFloat(devolucionForm.monto_garantia_dev) || 0
   const limpieza = parseFloat(devolucionForm.monto_limpieza) || 0
-  const neto = garantia - limpieza
+  const neto = garantia - limpieza                                    // refund al residente
+  const montoTotal = parseFloat(devolucionModal?.monto_total) || 0
+  const quedaEnCuenta = montoTotal - neto                             // lo que queda en la cuenta corriente
 
   return (
     <div className="admin">
@@ -283,6 +289,32 @@ export default function AdminPage() {
               <button className="btn-ghost" onClick={() => setDevolucionModal(null)}>✕</button>
             </div>
             <p className="modal-subtitle">Reserva <strong>{devolucionModal.codigo}</strong></p>
+
+            {/* Destino de la devolución (medio elegido por el residente) */}
+            <div className="modal-destino">
+              <div className="modal-destino-head">
+                <span>Devolver por</span>
+                <strong>{REFUND_METHOD_LABELS[devolucionModal.refund_method] || 'Transferencia bancaria'}</strong>
+              </div>
+              {(devolucionModal.refund_method === 'yape' || devolucionModal.refund_method === 'plin') ? (
+                <div className="modal-destino-row">
+                  <span>N° celular</span>
+                  <strong>{devolucionModal.numero_celular_devolucion || '—'}</strong>
+                </div>
+              ) : (
+                <>
+                  {devolucionModal.banco_nombre && (
+                    <div className="modal-destino-row"><span>Banco</span><strong>{devolucionModal.banco_nombre}</strong></div>
+                  )}
+                  {devolucionModal.cuenta_numero && (
+                    <div className="modal-destino-row"><span>N° cuenta</span><strong>{devolucionModal.cuenta_numero}</strong></div>
+                  )}
+                  {devolucionModal.cuenta_interbancaria && (
+                    <div className="modal-destino-row"><span>CCI</span><strong>{devolucionModal.cuenta_interbancaria}</strong></div>
+                  )}
+                </>
+              )}
+            </div>
 
             <div className="modal-field">
               <label>Devolución de garantía (S/.)</label>
@@ -309,10 +341,15 @@ export default function AdminPage() {
             </div>
 
             <div className="modal-neto">
-              <span>Monto neto a devolver</span>
+              <span>Monto neto a devolver al residente</span>
               <strong className={neto < 0 ? 'neto-negativo' : 'neto-positivo'}>
                 {formatCurrency(neto)}
               </strong>
+            </div>
+
+            <div className="modal-neto modal-queda">
+              <span>Queda en cuenta corriente</span>
+              <strong>{formatCurrency(quedaEnCuenta)}</strong>
             </div>
 
             <div className="modal-actions">
@@ -397,7 +434,7 @@ export default function AdminPage() {
                   <span className="stat-value">{stats.reservas_recientes_30d}</span>
                 </div>
                 <div className="stat-card accent">
-                  <span className="stat-label">Ingresos confirmados</span>
+                  <span className="stat-label">Neto en cuenta corriente</span>
                   <span className="stat-value">{formatCurrency(stats.ingresos_confirmados)}</span>
                 </div>
                 <div className="stat-card">
@@ -639,8 +676,9 @@ export default function AdminPage() {
                           disabled={updatingId === r.id}
                           onChange={(e) => handleSelectEstado(r, e.target.value)}
                         >
-                          {Object.entries(ESTADO_LABELS).filter(([k]) => k !== '').map(([s, label]) => (
-                            <option key={s} value={s}>{label}</option>
+                          {/* Estado actual (incluye bandeja de entrada) + las 3 acciones del admin */}
+                          {Array.from(new Set([r.estado, ...ADMIN_ACTIONS])).map((s) => (
+                            <option key={s} value={s}>{ESTADO_LABELS[s] || s}</option>
                           ))}
                         </select>
                       </td>

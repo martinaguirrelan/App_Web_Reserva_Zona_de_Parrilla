@@ -28,6 +28,41 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 VALID_STATES = ("pendiente_pago", "en_revision", "confirmada", "rechazada", "cancelada", "pendiente_devolucion")
 
 
+def _neto_en_cuenta(r: Reservation) -> Decimal:
+    """Dinero que realmente queda en la cuenta corriente para una reserva.
+
+    La garantía va incluida en `monto_total`. Al terminar el evento se devuelve
+    la garantía menos el cargo de limpieza, por lo que:
+        queda = monto_total − (garantía_devuelta − limpieza)
+
+    - confirmada: garantía aún retenida → queda el monto_total completo.
+    - pendiente_devolucion (Terminado): se descuenta lo devuelto.
+    - resto (pendiente_pago, en_revision, rechazada, cancelada): 0.
+    """
+    if r.estado == "confirmada":
+        return r.monto_total or Decimal("0")
+    if r.estado == "pendiente_devolucion":
+        total = r.monto_total or Decimal("0")
+        garantia = r.monto_garantia_dev or Decimal("0")
+        limpieza = r.monto_limpieza or Decimal("0")
+        return total - (garantia - limpieza)
+    return Decimal("0")
+
+
+def _destino_devolucion(r: Reservation) -> str:
+    """Texto legible del destino de la devolución según el medio elegido."""
+    if r.refund_method in ("yape", "plin"):
+        return f"{r.refund_method.capitalize()}: {r.numero_celular_devolucion or '—'}"
+    partes = []
+    if r.banco_nombre:
+        partes.append(r.banco_nombre)
+    if r.cuenta_numero:
+        partes.append(f"Cta {r.cuenta_numero}")
+    if r.cuenta_interbancaria:
+        partes.append(f"CCI {r.cuenta_interbancaria}")
+    return " / ".join(partes) if partes else "—"
+
+
 # ── Reservas ──────────────────────────────────────────────────────────────────
 
 @router.get("/reservations", response_model=list[ReservationResponse])
@@ -128,12 +163,14 @@ def get_stats(
         .all()
     )
 
-    ingresos_confirmados = (
-        db.query(func.sum(Reservation.monto_total))
-        .filter(Reservation.estado == "confirmada")
-        .scalar()
-        or Decimal("0")
+    # Neto real en cuenta corriente: confirmadas (garantía retenida) +
+    # terminadas (garantía ya devuelta, descontada del total).
+    en_cuenta_rows = (
+        db.query(Reservation)
+        .filter(Reservation.estado.in_(("confirmada", "pendiente_devolucion")))
+        .all()
     )
+    neto_en_cuenta = sum((_neto_en_cuenta(r) for r in en_cuenta_rows), Decimal("0"))
 
     ingresos_totales = (
         db.query(func.sum(Reservation.monto_total))
@@ -163,7 +200,7 @@ def get_stats(
     return {
         "total_reservas": total,
         "reservas_recientes_30d": recientes,
-        "ingresos_confirmados": float(ingresos_confirmados),
+        "ingresos_confirmados": float(neto_en_cuenta),
         "ingresos_proyectados": float(ingresos_totales),
         "por_estado": {e: c for e, c in por_estado},
         "por_zona": {z: c for z, c in por_zona},
@@ -197,7 +234,11 @@ def export_excel(
     headers = [
         "Código", "Residente", "Departamento", "Email",
         "Zona", "Fecha", "Hora inicio", "Hora fin",
-        "Monto (S/.)", "Estado", "Notas", "Fecha creación",
+        "Monto total (S/.)", "Estado",
+        "Garantía devuelta (S/.)", "Cargo limpieza (S/.)",
+        "Refund residente (S/.)", "Neto en cuenta (S/.)",
+        "Medio devolución", "Destino devolución",
+        "Notas", "Fecha creación",
     ]
     ws.append(headers)
     for col, _ in enumerate(headers, 1):
@@ -209,12 +250,21 @@ def export_excel(
     ESTADO_LABELS = {
         "pendiente_pago": "Pendiente de Pago",
         "en_revision": "En Revisión",
-        "confirmada": "Confirmada",
-        "rechazada": "Rechazada",
+        "confirmada": "Pago Confirmado",
+        "rechazada": "Rechazado",
         "cancelada": "Cancelada",
+        "pendiente_devolucion": "Terminado",
     }
+    REFUND_LABELS = {"banco": "Transferencia", "plin": "Plin", "yape": "Yape"}
 
     for r in reservas:
+        es_terminada = r.estado == "pendiente_devolucion"
+        garantia = float(r.monto_garantia_dev) if r.monto_garantia_dev is not None else None
+        limpieza = float(r.monto_limpieza) if r.monto_limpieza is not None else None
+        refund_residente = (
+            (garantia or 0) - (limpieza or 0)
+            if es_terminada and garantia is not None else None
+        )
         ws.append([
             r.codigo,
             r.usuario.nombre if r.usuario else "",
@@ -226,6 +276,12 @@ def export_excel(
             r.hora_fin.strftime("%H:%M") if r.hora_fin else "",
             float(r.monto_total),
             ESTADO_LABELS.get(r.estado, r.estado),
+            garantia if garantia is not None else "",
+            limpieza if limpieza is not None else "",
+            refund_residente if refund_residente is not None else "",
+            float(_neto_en_cuenta(r)),
+            REFUND_LABELS.get(r.refund_method, "") if es_terminada else "",
+            _destino_devolucion(r) if es_terminada else "",
             r.notas or "",
             r.created_at.strftime("%d/%m/%Y %H:%M") if r.created_at else "",
         ])
