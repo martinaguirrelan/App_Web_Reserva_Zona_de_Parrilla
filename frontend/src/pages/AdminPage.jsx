@@ -273,9 +273,9 @@ export default function AdminPage() {
   // ── Cálculo neto devolución ────────────────────────────────────────────────
   const garantia = parseFloat(devolucionForm.monto_garantia_dev) || 0
   const limpieza = parseFloat(devolucionForm.monto_limpieza) || 0
-  const neto = garantia - limpieza                                    // refund al residente
+  const refundResidente = garantia                                    // el residente recibe la garantía completa
   const montoTotal = parseFloat(devolucionModal?.monto_total) || 0
-  const quedaEnCuenta = montoTotal - neto                             // lo que queda en la cuenta corriente
+  const quedaEnCuenta = montoTotal - garantia - limpieza              // total − garantía − gasto de limpieza
 
   return (
     <div className="admin">
@@ -329,7 +329,7 @@ export default function AdminPage() {
             </div>
 
             <div className="modal-field">
-              <label>Cargo por limpieza (S/.)</label>
+              <label>Gasto de limpieza (S/.)</label>
               <input
                 type="number"
                 min="0"
@@ -341,15 +341,15 @@ export default function AdminPage() {
             </div>
 
             <div className="modal-neto">
-              <span>Monto neto a devolver al residente</span>
-              <strong className={neto < 0 ? 'neto-negativo' : 'neto-positivo'}>
-                {formatCurrency(neto)}
+              <span>A devolver al residente (garantía)</span>
+              <strong className={refundResidente < 0 ? 'neto-negativo' : 'neto-positivo'}>
+                {formatCurrency(refundResidente)}
               </strong>
             </div>
 
             <div className="modal-neto modal-queda">
               <span>Queda en cuenta corriente</span>
-              <strong>{formatCurrency(quedaEnCuenta)}</strong>
+              <strong className={quedaEnCuenta < 0 ? 'neto-negativo' : ''}>{formatCurrency(quedaEnCuenta)}</strong>
             </div>
 
             <div className="modal-actions">
@@ -599,13 +599,13 @@ export default function AdminPage() {
                   <strong>{viewingBanking.monto_garantia_dev != null ? formatCurrency(viewingBanking.monto_garantia_dev) : '—'}</strong>
                 </div>
                 <div className="banking-row">
-                  <span>Cargo limpieza</span>
+                  <span>Gasto limpieza</span>
                   <strong>{viewingBanking.monto_limpieza != null ? formatCurrency(viewingBanking.monto_limpieza) : '—'}</strong>
                 </div>
-                {viewingBanking.monto_garantia_dev != null && viewingBanking.monto_limpieza != null && (
+                {viewingBanking.monto_garantia_dev != null && (
                   <div className="banking-row banking-neto">
-                    <span>Monto neto a transferir</span>
-                    <strong>{formatCurrency(parseFloat(viewingBanking.monto_garantia_dev) - parseFloat(viewingBanking.monto_limpieza))}</strong>
+                    <span>Monto a transferir al residente</span>
+                    <strong>{formatCurrency(parseFloat(viewingBanking.monto_garantia_dev))}</strong>
                   </div>
                 )}
               </div>

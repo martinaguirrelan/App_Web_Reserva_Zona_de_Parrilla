@@ -31,12 +31,13 @@ VALID_STATES = ("pendiente_pago", "en_revision", "confirmada", "rechazada", "can
 def _neto_en_cuenta(r: Reservation) -> Decimal:
     """Dinero que realmente queda en la cuenta corriente para una reserva.
 
-    La garantía va incluida en `monto_total`. Al terminar el evento se devuelve
-    la garantía menos el cargo de limpieza, por lo que:
-        queda = monto_total − (garantía_devuelta − limpieza)
+    La garantía va incluida en `monto_total`. Al terminar el evento salen de la
+    cuenta dos montos: la garantía devuelta al residente y el gasto de limpieza,
+    por lo que:
+        queda = monto_total − garantía_devuelta − gasto_limpieza
 
-    - confirmada: garantía aún retenida → queda el monto_total completo.
-    - pendiente_devolucion (Terminado): se descuenta lo devuelto.
+    - confirmada: nada devuelto todavía → queda el monto_total completo.
+    - pendiente_devolucion (Terminado): se descuentan garantía y limpieza.
     - resto (pendiente_pago, en_revision, rechazada, cancelada): 0.
     """
     if r.estado == "confirmada":
@@ -45,7 +46,7 @@ def _neto_en_cuenta(r: Reservation) -> Decimal:
         total = r.monto_total or Decimal("0")
         garantia = r.monto_garantia_dev or Decimal("0")
         limpieza = r.monto_limpieza or Decimal("0")
-        return total - (garantia - limpieza)
+        return total - garantia - limpieza
     return Decimal("0")
 
 
@@ -261,10 +262,8 @@ def export_excel(
         es_terminada = r.estado == "pendiente_devolucion"
         garantia = float(r.monto_garantia_dev) if r.monto_garantia_dev is not None else None
         limpieza = float(r.monto_limpieza) if r.monto_limpieza is not None else None
-        refund_residente = (
-            (garantia or 0) - (limpieza or 0)
-            if es_terminada and garantia is not None else None
-        )
+        # El residente recibe la garantía completa; la limpieza es gasto de la cuenta.
+        refund_residente = garantia if es_terminada and garantia is not None else None
         ws.append([
             r.codigo,
             r.usuario.nombre if r.usuario else "",
