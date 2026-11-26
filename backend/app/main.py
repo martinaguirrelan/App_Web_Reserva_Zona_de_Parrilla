@@ -13,6 +13,16 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE reservas ADD COLUMN IF NOT EXISTS refund_method VARCHAR(20)"))
     _conn.execute(text("ALTER TABLE reservas ADD COLUMN IF NOT EXISTS cuenta_interbancaria VARCHAR(50)"))
     _conn.execute(text("ALTER TABLE reservas ADD COLUMN IF NOT EXISTS numero_celular_devolucion VARCHAR(20)"))
+    _conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.gastos (
+            codigo text PRIMARY KEY,
+            concepto text NOT NULL,
+            monto numeric(10, 2) NOT NULL CHECK (monto > 0),
+            fecha date,
+            created_at timestamptz NOT NULL DEFAULT now()
+        )
+    """))
+    _conn.execute(text("ALTER TABLE public.gastos ENABLE ROW LEVEL SECURITY"))
     _conn.commit()
 
 # Seed de configuración de pago si la tabla está vacía

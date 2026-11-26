@@ -415,7 +415,7 @@ export default function AdminPage() {
 
           {loadingStats ? (
             <div className="stats-grid">
-              {Array.from({ length: 4 }).map((_, i) => (
+              {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="stat-card">
                   <SkeletonBlock height="1.5rem" width="50%" />
                   <SkeletonBlock height="2.5rem" width="40%" />
@@ -434,8 +434,16 @@ export default function AdminPage() {
                   <span className="stat-value">{stats.reservas_recientes_30d}</span>
                 </div>
                 <div className="stat-card accent">
-                  <span className="stat-label">Neto en cuenta corriente</span>
+                  <span className="stat-label">Saldo después de gastos</span>
+                  <span className="stat-value">{formatCurrency(stats.saldo_en_cuenta)}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Neto de reservas</span>
                   <span className="stat-value">{formatCurrency(stats.ingresos_confirmados)}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Total de gastos</span>
+                  <span className="stat-value">{formatCurrency(stats.gastos_totales)}</span>
                 </div>
                 <div className="stat-card">
                   <span className="stat-label">Ingresos proyectados</span>

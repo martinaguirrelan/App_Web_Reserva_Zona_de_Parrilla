@@ -5,7 +5,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from pydantic import BaseModel
 
@@ -28,26 +28,30 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 VALID_STATES = ("pendiente_pago", "en_revision", "confirmada", "rechazada", "cancelada", "pendiente_devolucion")
 
 
+ESTADOS_EN_CUENTA = ("confirmada", "pendiente_devolucion")
+
+
 def _neto_en_cuenta(r: Reservation) -> Decimal:
-    """Dinero que realmente queda en la cuenta corriente para una reserva.
+    if r.estado not in ESTADOS_EN_CUENTA:
+        return Decimal("0")
+    return (
+        (r.monto_total or Decimal("0"))
+        - (r.monto_garantia_dev or Decimal("0"))
+        - (r.monto_limpieza or Decimal("0"))
+    )
 
-    La garantía va incluida en `monto_total`. Al terminar el evento salen de la
-    cuenta dos montos: la garantía devuelta al residente y el gasto de limpieza,
-    por lo que:
-        queda = monto_total − garantía_devuelta − gasto_limpieza
 
-    - confirmada: nada devuelto todavía → queda el monto_total completo.
-    - pendiente_devolucion (Terminado): se descuentan garantía y limpieza.
-    - resto (pendiente_pago, en_revision, rechazada, cancelada): 0.
-    """
-    if r.estado == "confirmada":
-        return r.monto_total or Decimal("0")
-    if r.estado == "pendiente_devolucion":
-        total = r.monto_total or Decimal("0")
-        garantia = r.monto_garantia_dev or Decimal("0")
-        limpieza = r.monto_limpieza or Decimal("0")
-        return total - garantia - limpieza
-    return Decimal("0")
+def _neto_reservas(db: Session) -> Decimal:
+    reservas = db.query(Reservation).filter(Reservation.estado.in_(ESTADOS_EN_CUENTA))
+    return sum((_neto_en_cuenta(r) for r in reservas), Decimal("0"))
+
+
+def _resumen_saldo(neto_reservas: Decimal, gastos_totales: Decimal) -> dict[str, Decimal]:
+    return {
+        "ingresos_confirmados": neto_reservas,
+        "gastos_totales": gastos_totales,
+        "saldo_en_cuenta": neto_reservas - gastos_totales,
+    }
 
 
 def _destino_devolucion(r: Reservation) -> str:
@@ -164,14 +168,10 @@ def get_stats(
         .all()
     )
 
-    # Neto real en cuenta corriente: confirmadas (garantía retenida) +
-    # terminadas (garantía ya devuelta, descontada del total).
-    en_cuenta_rows = (
-        db.query(Reservation)
-        .filter(Reservation.estado.in_(("confirmada", "pendiente_devolucion")))
-        .all()
-    )
-    neto_en_cuenta = sum((_neto_en_cuenta(r) for r in en_cuenta_rows), Decimal("0"))
+    gastos_totales = db.execute(
+        text("SELECT COALESCE(SUM(monto), 0) FROM public.gastos")
+    ).scalar_one()
+    saldo = _resumen_saldo(_neto_reservas(db), gastos_totales)
 
     ingresos_totales = (
         db.query(func.sum(Reservation.monto_total))
@@ -201,7 +201,7 @@ def get_stats(
     return {
         "total_reservas": total,
         "reservas_recientes_30d": recientes,
-        "ingresos_confirmados": float(neto_en_cuenta),
+        **{clave: float(valor) for clave, valor in saldo.items()},
         "ingresos_proyectados": float(ingresos_totales),
         "por_estado": {e: c for e, c in por_estado},
         "por_zona": {z: c for z, c in por_zona},
@@ -216,7 +216,7 @@ def export_excel(
     db: Session = Depends(get_db),
     _: str = Depends(get_current_admin),
 ):
-    """Genera y descarga un archivo Excel con las reservas."""
+    """Exporta las reservas y el saldo general con el detalle de gastos."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
 
@@ -288,6 +288,41 @@ def export_excel(
     for col in ws.columns:
         max_len = max(len(str(cell.value or "")) for cell in col)
         ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+
+    gastos = db.execute(text(
+        "SELECT codigo, concepto, fecha, monto FROM public.gastos "
+        "ORDER BY fecha DESC NULLS LAST, codigo"
+    )).mappings().all()
+    gastos_totales = sum((gasto["monto"] for gasto in gastos), Decimal("0"))
+    # El saldo general conserva el mismo alcance que el panel, incluso con filtro.
+    neto_reservas = _neto_reservas(db) if estado else sum(
+        (_neto_en_cuenta(r) for r in reservas), Decimal("0")
+    )
+    saldo = _resumen_saldo(neto_reservas, gastos_totales)
+    hoja_gastos = wb.create_sheet("Gastos")
+    hoja_gastos.append(["Resumen general", None, None, "Monto (S/.)"])
+    hoja_gastos.append(["Neto de reservas", None, None, saldo["ingresos_confirmados"]])
+    hoja_gastos.append(["Total de gastos", None, None, saldo["gastos_totales"]])
+    hoja_gastos.append(["Saldo después de gastos", None, None, saldo["saldo_en_cuenta"]])
+    hoja_gastos.append([])
+    hoja_gastos.append(["Código", "Concepto", "Fecha", "Monto (S/.)"])
+    for gasto in gastos:
+        hoja_gastos.append([gasto["codigo"], gasto["concepto"], gasto["fecha"], gasto["monto"]])
+        hoja_gastos.cell(hoja_gastos.max_row, 2).data_type = "s"
+        hoja_gastos.cell(hoja_gastos.max_row, 3).number_format = "dd/mm/yyyy"
+    for fila in (1, 6):
+        for cell in hoja_gastos[fila]:
+            cell.fill = header_fill
+            cell.font = header_font
+    hoja_gastos["A4"].font = Font(bold=True)
+    hoja_gastos["D4"].font = Font(bold=True)
+    for cell in hoja_gastos["D"]:
+        if cell.data_type == "n" and cell.value is not None:
+            cell.number_format = "#,##0.00"
+    for columna, ancho in {"A": 26, "B": 44, "C": 16, "D": 18}.items():
+        hoja_gastos.column_dimensions[columna].width = ancho
+    hoja_gastos.freeze_panes = "A7"
+    hoja_gastos.auto_filter.ref = f"A6:D{hoja_gastos.max_row}"
 
     buf = BytesIO()
     wb.save(buf)
