@@ -79,7 +79,7 @@ def list_reservations(
     q = db.query(Reservation)
     if estado:
         q = q.filter(Reservation.estado == estado)
-    return q.order_by(Reservation.created_at.desc()).all()
+    return q.order_by(Reservation.fecha.desc(), Reservation.created_at.desc(), Reservation.codigo).all()
 
 
 @router.patch("/reservations/{reservation_id}/estado")
