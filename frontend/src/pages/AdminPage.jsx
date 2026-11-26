@@ -435,7 +435,7 @@ export default function AdminPage() {
                 </div>
                 <div className="stat-card accent">
                   <span className="stat-label">Saldo después de gastos</span>
-                  <span className="stat-value">{formatCurrency(stats.saldo_en_cuenta)}</span>
+                  <span className="stat-value">{Number.isFinite(stats.saldo_en_cuenta) ? formatCurrency(stats.saldo_en_cuenta) : 'No disponible'}</span>
                 </div>
                 <div className="stat-card">
                   <span className="stat-label">Neto de reservas</span>
@@ -443,7 +443,7 @@ export default function AdminPage() {
                 </div>
                 <div className="stat-card">
                   <span className="stat-label">Total de gastos</span>
-                  <span className="stat-value">{formatCurrency(stats.gastos_totales)}</span>
+                  <span className="stat-value">{Number.isFinite(stats.gastos_totales) ? formatCurrency(stats.gastos_totales) : 'No disponible'}</span>
                 </div>
                 <div className="stat-card">
                   <span className="stat-label">Ingresos proyectados</span>
